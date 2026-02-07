@@ -12,7 +12,6 @@ import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 
 import { useDarkMode } from '../context/DarkModeContext';
 import { useUserLocation } from '../hooks/useUserLocation';
@@ -206,7 +205,7 @@ export default function MapHomeScreen() {
     return '#B87C7C';
   };
 
-  const snapPoints = React.useMemo(() => ['35%', '55%', '85%'], []);
+  const screenHeight = Dimensions.get('window').height;
 
   return (
     <View style={styles.flex}>
@@ -334,21 +333,14 @@ export default function MapHomeScreen() {
         </View>
 
         {/* Bottom Sheet */}
-        <BottomSheet
-          index={0}
-          snapPoints={snapPoints}
-          backgroundStyle={{
-            backgroundColor: isDark ? '#2C2C2E' : '#FFFFFF',
-            borderRadius: 24,
-          }}
-          handleIndicatorStyle={{
-            backgroundColor: isDark ? '#48484A' : '#D3D5D7',
-            width: 48,
-          }}
-        >
-          <BottomSheetScrollView
-            contentContainerStyle={styles.sheetContent}
-          >
+        <View style={[styles.bottomSheet, {
+          backgroundColor: isDark ? '#2C2C2E' : '#FFFFFF',
+          maxHeight: screenHeight * 0.55,
+        }]}>
+          <View style={styles.handleBar}>
+            <View style={[styles.handle, { backgroundColor: isDark ? '#48484A' : '#D3D5D7' }]} />
+          </View>
+          <ScrollView contentContainerStyle={styles.sheetContent}>
             {/* Search Bar */}
             <TouchableOpacity
               onPress={() => navigation.navigate('SearchResults')}
@@ -452,8 +444,8 @@ export default function MapHomeScreen() {
 
             {/* Bottom padding for tab bar */}
             <View style={{ height: 100 }} />
-          </BottomSheetScrollView>
-        </BottomSheet>
+          </ScrollView>
+        </View>
 
         {/* Crowdsource Prompt */}
         {crowdsourcePrompt && (
@@ -602,6 +594,29 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
+  },
+  bottomSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  handleBar: {
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  handle: {
+    width: 48,
+    height: 5,
+    borderRadius: 3,
   },
   sheetContent: {
     paddingHorizontal: 16,
