@@ -5,7 +5,6 @@ import cors from "cors";
 const app = express();
 app.use(cors());
 app.use(express.json());
-const port = 3000;
 // axios is used to handle HTTP requests and responses like GET, POST, PUT, DELETE, etc.
 import axios from "axios";
 // node cache is a way to store frequently accessed data in memory for a certain period of time to improve performance and reduce latency.
@@ -18,6 +17,8 @@ _config();
 import { SF_PARKING_SPOTS } from './phoneData/crowdsourceSpots.js';
 import { calculateDistance } from './phoneData/utils.js';
 
+const port = process.env.PORT ? Number(process.env.PORT) : 4000;
+
 const config = {
   appId: process.env.APP_ID,
   hashToken: process.env.HASH_TOKEN,
@@ -27,7 +28,12 @@ const config = {
   mapboxDirectionsApiToken: process.env.MAPBOX_DIRECTIONS_API_TOKEN
 };
 
+const DEBUG_LOG = (payload) => { try { require('http').request({ hostname: '127.0.0.1', port: 7243, path: '/ingest/bb2dc183-ae2c-480c-a833-e5e9fcaa5246', method: 'POST', headers: { 'Content-Type': 'application/json' } }, () => {}).end(JSON.stringify({ ...payload, timestamp: Date.now(), sessionId: 'debug-session' })); } catch (e) {} };
+
 app.get("/getToken", (req, res) => {
+  // #region agent log
+  DEBUG_LOG({ location: 'server/index.js:getToken:entry', message: 'getToken called', data: { hasAppId: !!process.env.APP_ID, hasHashToken: !!process.env.HASH_TOKEN, hasAuthTokenUrl: !!config.authTokenUrl }, hypothesisId: 'A' });
+  // #endregion
   // url to produce token based on appId and hashToken
   res.setHeader("Access-Control-Allow-Origin", "*"); // setup cors compatibility
   // get from .env variables
@@ -54,6 +60,9 @@ app.get("/getToken", (req, res) => {
       },
     )
       .then((response) => {
+        // #region agent log
+        DEBUG_LOG({ location: 'server/index.js:getToken:then', message: 'getToken axios then', data: { status: response.status, hasResult: !!(response.data && response.data.result), hasToken: !!(response.data && response.data.result && response.data.result.token) }, hypothesisId: 'C' });
+        // #endregion
         if (response.status === 200) {
           const oneHour = 1 * 60 * 60; // One hour in seconds
           //const twelvehours = 15;
@@ -70,6 +79,9 @@ app.get("/getToken", (req, res) => {
         }
       })
       .catch((error) => {
+        // #region agent log
+        DEBUG_LOG({ location: 'server/index.js:getToken:catch', message: 'getToken axios catch', data: { errMessage: error?.message }, hypothesisId: 'A' });
+        // #endregion
         // res.json(error);
         res.status(500).send({ error: 'error fetching token' })
       });
@@ -77,6 +89,9 @@ app.get("/getToken", (req, res) => {
 });
 
 app.get("/parking", (req, res) => {
+  // #region agent log
+  DEBUG_LOG({ location: 'server/index.js:parking:entry', message: 'parking called', data: { point: req.query.point, radius: req.query.radius }, hypothesisId: 'B' });
+  // #endregion
   res.setHeader("Access-Control-Allow-Origin", "*"); // setup cors compatibility
   const { point, radius } = req.query;
 
@@ -121,18 +136,19 @@ app.get("/parking", (req, res) => {
           const blocks = response.data.result;
           if (!blocks || blocks.length === 0) {
             res.status(404).send({ error: 'no parking data found for the given parameters' });
-            // console.log(point, radius);
-            // console.log(response);
             return;
           }
 
-          const bestBlock = blocks.filter(b => b.segments.some(s => s.isOpen)).reduce((best, item) => {
+          const openBlocks = blocks.filter(b => b.segments && b.segments.some(s => s.isOpen));
+          // #region agent log
+          DEBUG_LOG({ location: 'server/index.js:parking:filter', message: 'parking openBlocks', data: { blocksCount: blocks.length, openBlocksCount: openBlocks.length }, hypothesisId: 'B' });
+          // #endregion
+          const bestBlock = openBlocks.reduce((best, item) => {
             return item.probability > best.probability ? item : best;
-          })
-
+          });
           const bestSegment = bestBlock.segments.filter(s => s.isOpen).reduce((best, item) => {
             return item.spacesTotal > best.spacesTotal ? item : best;
-          })
+          });
 
           // map through an array of objects and extract a block with the highest probability
           const payload = {
@@ -155,6 +171,9 @@ app.get("/parking", (req, res) => {
         };
       })
       .catch((error) => {
+        // #region agent log
+        DEBUG_LOG({ location: 'server/index.js:parking:catch', message: 'parking axios catch', data: { errMessage: error?.message }, hypothesisId: 'B' });
+        // #endregion
         res.status(500).send({ error: 'error fetching parking data' });
       });
   }
