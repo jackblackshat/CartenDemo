@@ -1,0 +1,195 @@
+@import "tailwindcss";
+
+:root {
+  /* Liquid Glass - Warm Neutrals */
+  --color-primary: #FAF9F6;
+  --color-base: #F5F1E8;
+  --color-card: #FFFFFF;
+  --color-sand: #D4C4A8;
+  --color-taupe: #E8DFD0;
+  
+  /* Liquid Glass - Green tones */
+  --color-sage: #8B9D83;
+  --color-eucalyptus: #7FA98E;
+  --color-forest: #5F7A61;
+  --color-success: #7FA98E;
+  
+  /* Liquid Glass - Soft Grays */
+  --color-warm-gray: #8A8D91;
+  --color-ash: #D3D5D7;
+  --color-charcoal: #4A4F55;
+  
+  /* Accents */
+  --color-accent: #7FA98E;
+  --color-accent-alt: #8B9D83;
+  --color-warning: #C9A96E;
+  --color-error: #B87C7C;
+  
+  /* Text */
+  --color-text: #4A4F55;
+  --color-text-muted: #8A8D91;
+  --color-border: #D3D5D7;
+  
+  /* Glass Effect Variables */
+  --glass-bg: rgba(255, 255, 255, 0.25);
+  --glass-highlight: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.18);
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Segoe UI', sans-serif;
+  background: var(--color-base);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  font-family: inherit;
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes bounce-in {
+  0% {
+    transform: scale(0.95) translateY(-10px);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.4s ease-out;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ==================== LIQUID GLASS EFFECTS ==================== */
+
+@keyframes floatDistort {
+  0% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
+}
+
+/* Glass Card Container */
+.glass-card {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(138, 141, 145, 0.15);
+}
+
+.glass-filter,
+.glass-overlay,
+.glass-specular,
+.glass-distortion-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.glass-filter {
+  z-index: 1;
+  backdrop-filter: blur(12px) saturate(120%) brightness(1.15);
+  -webkit-backdrop-filter: blur(12px) saturate(120%) brightness(1.15);
+}
+
+.glass-distortion-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 20% 30%, rgba(255,255,255,0.08) 0%, transparent 80%),
+              radial-gradient(circle at 80% 70%, rgba(255,255,255,0.08) 0%, transparent 80%);
+  background-size: 300% 300%;
+  animation: floatDistort 10s infinite ease-in-out;
+  mix-blend-mode: overlay;
+  z-index: 2;
+}
+
+.glass-overlay {
+  z-index: 2;
+  background: var(--glass-bg);
+}
+
+.glass-specular {
+  z-index: 3;
+  box-shadow: inset 1px 1px 1px var(--glass-highlight);
+  transition: background 0.3s ease;
+}
+
+.glass-content {
+  position: relative;
+  z-index: 4;
+}
+
+/* Light Glass Variant */
+.glass-card-light {
+  --glass-bg: rgba(255, 255, 255, 0.45);
+  --glass-highlight: rgba(255, 255, 255, 0.85);
+}
+
+.glass-card-light .glass-filter {
+  backdrop-filter: blur(16px) saturate(130%) brightness(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(130%) brightness(1.2);
+}
+
+/* Dark Glass Variant */
+.glass-card-dark {
+  --glass-bg: rgba(0, 0, 0, 0.15);
+  --glass-highlight: rgba(255, 255, 255, 0.25);
+}
+
+.glass-card-dark .glass-filter {
+  backdrop-filter: blur(10px) saturate(110%) brightness(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(110%) brightness(1.1);
+}
+
+/* Green Glass Variant */
+.glass-card-green {
+  --glass-bg: rgba(127, 169, 142, 0.25);
+  --glass-highlight: rgba(255, 255, 255, 0.65);
+}
+
+.glass-card-green .glass-filter {
+  backdrop-filter: blur(14px) saturate(140%) brightness(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(140%) brightness(1.15);
+}
