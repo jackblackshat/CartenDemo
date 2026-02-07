@@ -1,0 +1,712 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  Dimensions,
+  ActivityIndicator,
+} from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+
+import { useDarkMode } from '../context/DarkModeContext';
+import { useUserLocation } from '../hooks/useUserLocation';
+import { usePhoneDataCollector } from '../lib/PhoneDataCollectorProvider';
+import { fetchParkingWithFallback, fetchCrowdsourceSpots } from '../services/api';
+import SpotCard from '../components/SpotCard';
+import CrowdsourcePrompt from '../components/CrowdsourcePrompt';
+import LeavingModal from '../components/LeavingModal';
+import type { ParkingSpot, CrowdsourceSpot } from '../types';
+import type { MapStackParamList } from '../navigation/types';
+
+type NavProp = NativeStackNavigationProp<MapStackParamList>;
+
+const fallbackSpots: ParkingSpot[] = [
+  {
+    id: '1',
+    street: 'Market Street',
+    distance: '0.2 mi',
+    confidence: 94,
+    type: 'street',
+    status: 'available',
+    timeValid: '~5 mins',
+    timeLimit: '2hr max',
+    sources: ['camera', 'crowd'],
+    lat: 37.7899,
+    lng: -122.4025,
+  },
+  {
+    id: '2',
+    street: 'Valencia Street',
+    distance: '0.4 mi',
+    confidence: 87,
+    type: 'street',
+    status: 'prediction',
+    timeValid: '~8 mins',
+    timeLimit: '3hr max',
+    sources: ['prediction', 'api'],
+    lat: 37.7889,
+    lng: -122.4035,
+  },
+  {
+    id: '3',
+    street: 'Mission Street Garage',
+    distance: '0.6 mi',
+    confidence: 99,
+    type: 'garage',
+    status: 'paid',
+    timeValid: 'Real-time',
+    price: '$4/hr',
+    sources: ['api'],
+    lat: 37.7879,
+    lng: -122.4045,
+  },
+];
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+export default function MapHomeScreen() {
+  const navigation = useNavigation<NavProp>();
+  const { isDark } = useDarkMode();
+  const phoneData = usePhoneDataCollector();
+
+  const [filters, setFilters] = useState<string[]>(['Free', 'Paid', 'Garage', 'Street']);
+  const [showLeavingModal, setShowLeavingModal] = useState(false);
+  const [showParkedModal, setShowParkedModal] = useState(false);
+
+  // API state
+  const [spots, setSpots] = useState<ParkingSpot[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Crowdsource state
+  const [crowdsourcePrompt, setCrowdsourcePrompt] = useState<{
+    id: string;
+    name: string;
+    lat: number;
+    lng: number;
+  } | null>(null);
+
+  const { location, loading: locationLoading } = useUserLocation(true);
+
+  // Listen for phone data events (crowdsource prompts)
+  useEffect(() => {
+    if (!phoneData) return;
+    const unsubscribe = phoneData.onTrigger((event: any) => {
+      if (event?.type === 'CROWDSOURCE_PROMPT' && event?.data?.spot) {
+        setCrowdsourcePrompt(event.data.spot);
+      }
+    });
+    return unsubscribe;
+  }, [phoneData]);
+
+  // Fetch parking data
+  useEffect(() => {
+    async function fetchData() {
+      if (!location) return;
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const parkingResult = await fetchParkingWithFallback(location);
+
+        if (parkingResult) {
+          const apiSpot: ParkingSpot = {
+            id: parkingResult.blockId,
+            street: parkingResult.name,
+            distance: `${(parkingResult.distance / 1609.34).toFixed(1)} mi`,
+            confidence: Math.round(parkingResult.probability * 100),
+            type: 'street',
+            status: parkingResult.probability > 0.7 ? 'available' : 'prediction',
+            timeValid: `~${Math.round(parkingResult.exp / 60)} mins`,
+            timeLimit: '2hr max',
+            sources: ['api'],
+            lat: location.lat,
+            lng: location.lng,
+          };
+          setSpots([apiSpot, ...fallbackSpots.slice(1)]);
+        } else {
+          setSpots(fallbackSpots);
+        }
+      } catch {
+        setSpots(fallbackSpots);
+        setError('Using cached data');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, [location?.lat, location?.lng]);
+
+  // Fallback if location fails
+  useEffect(() => {
+    if (!locationLoading && !location && spots.length === 0) {
+      setSpots(fallbackSpots);
+      setLoading(false);
+    }
+  }, [locationLoading, location, spots.length]);
+
+  const toggleFilter = (filter: string) => {
+    setFilters((prev) =>
+      prev.includes(filter)
+        ? prev.filter((f) => f !== filter)
+        : [...prev, filter],
+    );
+  };
+
+  const filteredSpots = spots.filter((spot) => {
+    if (filters.includes('Free') && spot.status === 'available' && !spot.price)
+      return true;
+    if (filters.includes('Paid') && (spot.status === 'paid' || spot.price))
+      return true;
+    if (filters.includes('Garage') && spot.type === 'garage') return true;
+    if (filters.includes('Street') && spot.type === 'street') return true;
+    return false;
+  });
+
+  const handleRefresh = useCallback(async () => {
+    if (!location) return;
+    setLoading(true);
+    try {
+      const result = await fetchParkingWithFallback(location);
+      if (result) {
+        const apiSpot: ParkingSpot = {
+          id: result.blockId,
+          street: result.name,
+          distance: `${(result.distance / 1609.34).toFixed(1)} mi`,
+          confidence: Math.round(result.probability * 100),
+          type: 'street',
+          status: result.probability > 0.7 ? 'available' : 'prediction',
+          timeValid: `~${Math.round(result.exp / 60)} mins`,
+          timeLimit: '2hr max',
+          sources: ['api'],
+          lat: location.lat,
+          lng: location.lng,
+        };
+        setSpots([apiSpot, ...fallbackSpots.slice(1)]);
+      }
+    } catch {
+      setError('Failed to refresh');
+    } finally {
+      setLoading(false);
+    }
+  }, [location]);
+
+  const getMarkerColor = (spot: ParkingSpot) => {
+    if (spot.status === 'available') return '#7FA98E';
+    if (spot.status === 'prediction') return '#C9A96E';
+    if (spot.status === 'paid') return '#8B9D83';
+    return '#B87C7C';
+  };
+
+  const snapPoints = React.useMemo(() => ['35%', '55%', '85%'], []);
+
+  return (
+    <View style={styles.flex}>
+      <View style={styles.flex}>
+        {/* Map */}
+        <MapView
+          style={StyleSheet.absoluteFill}
+          provider={PROVIDER_GOOGLE}
+          initialRegion={{
+            latitude: location?.lat ?? 37.7749,
+            longitude: location?.lng ?? -122.4194,
+            latitudeDelta: 0.015,
+            longitudeDelta: 0.015,
+          }}
+          region={
+            location
+              ? {
+                  latitude: location.lat,
+                  longitude: location.lng,
+                  latitudeDelta: 0.015,
+                  longitudeDelta: 0.015,
+                }
+              : undefined
+          }
+          showsUserLocation
+          showsMyLocationButton={false}
+        >
+          {filteredSpots.map((spot) =>
+            spot.lat && spot.lng ? (
+              <Marker
+                key={spot.id}
+                coordinate={{ latitude: spot.lat, longitude: spot.lng }}
+                pinColor={getMarkerColor(spot)}
+                onPress={() =>
+                  navigation.navigate('SpotDetail', { id: spot.id })
+                }
+              />
+            ) : null,
+          )}
+        </MapView>
+
+        {/* Top Controls */}
+        <View style={styles.topControls}>
+          <TouchableOpacity
+            onPress={handleRefresh}
+            disabled={loading}
+            style={[
+              styles.controlButton,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(44, 44, 46, 0.95)'
+                  : 'rgba(255, 255, 255, 0.95)',
+                borderColor: isDark ? '#3A3A3C' : '#D3D5D7',
+              },
+            ]}
+          >
+            <Ionicons
+              name="refresh"
+              size={20}
+              color={isDark ? '#AEAEB2' : '#8A8D91'}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Heatmap')}
+            style={[
+              styles.controlButton,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(44, 44, 46, 0.95)'
+                  : 'rgba(255, 255, 255, 0.95)',
+                borderColor: isDark ? '#3A3A3C' : '#D3D5D7',
+              },
+            ]}
+          >
+            <Ionicons
+              name="layers"
+              size={20}
+              color={isDark ? '#AEAEB2' : '#8A8D91'}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Location loading indicator */}
+        {locationLoading && (
+          <View style={styles.locationStatus}>
+            <View
+              style={[
+                styles.locationPill,
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(44, 44, 46, 0.95)'
+                    : 'rgba(255, 255, 255, 0.95)',
+                  borderColor: isDark ? '#3A3A3C' : '#D3D5D7',
+                },
+              ]}
+            >
+              <ActivityIndicator size="small" color="#7FA98E" />
+              <Text
+                style={[
+                  styles.locationText,
+                  { color: isDark ? '#AEAEB2' : '#8A8D91' },
+                ]}
+              >
+                Getting location...
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* FABs */}
+        <View style={styles.fabContainer}>
+          <TouchableOpacity
+            onPress={() => setShowLeavingModal(true)}
+            style={[styles.fab, { backgroundColor: '#B87C7C' }]}
+          >
+            <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setShowParkedModal(true)}
+            style={[styles.fab, { backgroundColor: '#7FA98E' }]}
+          >
+            <Ionicons name="location" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Bottom Sheet */}
+        <BottomSheet
+          index={0}
+          snapPoints={snapPoints}
+          backgroundStyle={{
+            backgroundColor: isDark ? '#2C2C2E' : '#FFFFFF',
+            borderRadius: 24,
+          }}
+          handleIndicatorStyle={{
+            backgroundColor: isDark ? '#48484A' : '#D3D5D7',
+            width: 48,
+          }}
+        >
+          <BottomSheetScrollView
+            contentContainerStyle={styles.sheetContent}
+          >
+            {/* Search Bar */}
+            <TouchableOpacity
+              onPress={() => navigation.navigate('SearchResults')}
+              style={[
+                styles.searchBar,
+                {
+                  backgroundColor: isDark ? '#3A3A3C' : '#F5F1E8',
+                  borderColor: isDark ? '#48484A' : '#D3D5D7',
+                },
+              ]}
+            >
+              <Ionicons
+                name="search"
+                size={20}
+                color={isDark ? '#AEAEB2' : '#8A8D91'}
+              />
+              <Text
+                style={{ color: isDark ? '#AEAEB2' : '#8A8D91', fontSize: 15 }}
+              >
+                Where are you going?
+              </Text>
+            </TouchableOpacity>
+
+            {/* Header */}
+            <View style={styles.headerRow}>
+              <Text
+                style={[
+                  styles.headerTitle,
+                  { color: isDark ? '#F5F5F7' : '#4A4F55' },
+                ]}
+              >
+                {loading ? (
+                  'Finding spots...'
+                ) : error ? (
+                  `${filteredSpots.length} spots (cached)`
+                ) : (
+                  `${filteredSpots.length} spots nearby`
+                )}
+              </Text>
+            </View>
+
+            {/* Filter Chips */}
+            <View style={styles.filterRow}>
+              {['Free', 'Paid', 'Garage', 'Street'].map((filter) => (
+                <TouchableOpacity
+                  key={filter}
+                  onPress={() => toggleFilter(filter)}
+                  style={[
+                    styles.filterChip,
+                    filters.includes(filter)
+                      ? styles.filterActive
+                      : {
+                          backgroundColor: isDark ? '#3A3A3C' : '#F5F1E8',
+                          borderColor: isDark ? '#48484A' : '#D3D5D7',
+                        },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.filterText,
+                      {
+                        color: filters.includes(filter)
+                          ? '#FFFFFF'
+                          : isDark
+                          ? '#AEAEB2'
+                          : '#8A8D91',
+                      },
+                    ]}
+                  >
+                    {filter}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Spot Cards */}
+            {loading && (
+              <ActivityIndicator
+                size="large"
+                color="#7FA98E"
+                style={styles.loader}
+              />
+            )}
+            {filteredSpots.map((spot) => (
+              <SpotCard key={spot.id} spot={spot} />
+            ))}
+            {filteredSpots.length === 0 && !loading && (
+              <View style={styles.emptyState}>
+                <Text
+                  style={{ color: isDark ? '#AEAEB2' : '#8A8D91', textAlign: 'center' }}
+                >
+                  No spots match your filters
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setFilters(['Free', 'Paid', 'Garage', 'Street'])}
+                >
+                  <Text style={styles.clearFilters}>Clear filters</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Bottom padding for tab bar */}
+            <View style={{ height: 100 }} />
+          </BottomSheetScrollView>
+        </BottomSheet>
+
+        {/* Crowdsource Prompt */}
+        {crowdsourcePrompt && (
+          <CrowdsourcePrompt
+            spot={crowdsourcePrompt}
+            onResponse={(spotId, isOpen) => {
+              (phoneData as any)?.userAction('crowdsource_response', 0);
+              setCrowdsourcePrompt(null);
+            }}
+            onDismiss={() => setCrowdsourcePrompt(null)}
+          />
+        )}
+
+        {/* Parked Modal */}
+        {showParkedModal && (
+          <View style={styles.modalOverlay}>
+            <View
+              style={[
+                styles.parkedSheet,
+                { backgroundColor: isDark ? '#2C2C2E' : '#FFFFFF' },
+              ]}
+            >
+              <View style={styles.parkedHeader}>
+                <Text
+                  style={[
+                    styles.parkedTitle,
+                    { color: isDark ? '#F5F5F7' : '#4A4F55' },
+                  ]}
+                >
+                  How long are you staying?
+                </Text>
+                <TouchableOpacity onPress={() => setShowParkedModal(false)}>
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color={isDark ? '#AEAEB2' : '#8A8D91'}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.durationGrid}>
+                {['15m', '30m', '1hr', '2hr'].map((d) => (
+                  <TouchableOpacity
+                    key={d}
+                    onPress={() => {
+                      (phoneData as any)?.userAction('parked', parseInt(d));
+                      setShowParkedModal(false);
+                    }}
+                    style={[
+                      styles.durationButton,
+                      {
+                        backgroundColor: isDark ? '#3A3A3C' : '#F5F1E8',
+                        borderColor: isDark ? '#48484A' : '#D3D5D7',
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.durationText,
+                        { color: isDark ? '#F5F5F7' : '#4A4F55' },
+                      ]}
+                    >
+                      {d}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setShowParkedModal(false)}
+                style={styles.notSureButton}
+              >
+                <Text style={styles.notSureText}>Not sure</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Leaving Modal */}
+        <LeavingModal
+          visible={showLeavingModal}
+          onClose={() => {
+            (phoneData as any)?.userAction('leaving', 0);
+            setShowLeavingModal(false);
+          }}
+        />
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
+  topControls: {
+    position: 'absolute',
+    top: 60,
+    right: 16,
+    gap: 8,
+  },
+  controlButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  locationStatus: {
+    position: 'absolute',
+    top: 60,
+    left: 16,
+  },
+  locationPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  locationText: {
+    fontSize: 12,
+  },
+  fabContainer: {
+    position: 'absolute',
+    right: 16,
+    bottom: SCREEN_HEIGHT * 0.38,
+    gap: 12,
+  },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  sheetContent: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    height: 48,
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  filterChip: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 999,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  filterActive: {
+    backgroundColor: '#7FA98E',
+    borderColor: '#7FA98E',
+  },
+  filterText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  loader: {
+    marginVertical: 32,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    gap: 8,
+  },
+  clearFilters: {
+    color: '#7FA98E',
+    textDecorationLine: 'underline',
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'flex-end',
+    zIndex: 100,
+  },
+  parkedSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+  },
+  parkedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  parkedTitle: {
+    fontSize: 22,
+    fontWeight: '600',
+  },
+  durationGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 16,
+  },
+  durationButton: {
+    width: '47%',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  durationText: {
+    fontSize: 18,
+    fontWeight: '500',
+  },
+  notSureButton: {
+    backgroundColor: '#7FA98E',
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  notSureText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+});

@@ -1,23 +1,36 @@
 import React from 'react';
-import { SafeAreaView, StatusBar, StyleSheet } from 'react-native';
+import { StatusBar } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
 import { PhoneDataCollectorProvider } from './src/lib/PhoneDataCollectorProvider';
-import MapOrchestrator from './src/components/MapOrchestrator';
+import { DarkModeProvider, useDarkMode } from './src/context/DarkModeContext';
+import { NavigationProvider } from './src/context/NavigationContext';
+import RootNavigator from './src/navigation/RootNavigator';
 
-export default function App() {
+function AppContent() {
+  const { isDark } = useDarkMode();
   return (
-    <PhoneDataCollectorProvider>
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" />
-        <MapOrchestrator />
-      </SafeAreaView>
+    <>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <NavigationContainer>
+        <NavigationProvider>
+          <RootNavigator />
+        </NavigationProvider>
+      </NavigationContainer>
       <Toast />
-    </PhoneDataCollectorProvider>
+    </>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
+export default function App() {
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <PhoneDataCollectorProvider>
+        <DarkModeProvider>
+          <AppContent />
+        </DarkModeProvider>
+      </PhoneDataCollectorProvider>
+    </GestureHandlerRootView>
+  );
+}
