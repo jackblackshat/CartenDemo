@@ -1,6 +1,5 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Marker } from 'react-native-maps';
+import React, { useMemo } from 'react';
+import MapboxGL from '@rnmapbox/maps';
 import type { DetectedSpot } from '../types';
 
 interface Props {
@@ -10,52 +9,59 @@ interface Props {
 }
 
 export default function SpotMarkers({ spots, selectedSpotId, onSpotPress }: Props) {
-  return (
-    <>
-      {spots.map((spot) => {
-        const isSelected = spot.id === selectedSpotId;
-        const isEmpty = spot.label === 'empty';
+  const geoJSON: GeoJSON.FeatureCollection = useMemo(() => ({
+    type: 'FeatureCollection',
+    features: spots.map((spot) => ({
+      type: 'Feature' as const,
+      id: spot.id,
+      properties: {
+        id: spot.id,
+        isEmpty: spot.label === 'empty',
+        isSelected: spot.id === selectedSpotId,
+        color: spot.label === 'empty' ? '#7FA98E' : '#B87C7C',
+      },
+      geometry: {
+        type: 'Point' as const,
+        coordinates: [spot.lng, spot.lat],
+      },
+    })),
+  }), [spots, selectedSpotId]);
 
-        return (
-          <Marker
-            key={spot.id}
-            coordinate={{ latitude: spot.lat, longitude: spot.lng }}
-            anchor={{ x: 0.5, y: 0.5 }}
-            onPress={() => onSpotPress?.(spot.id)}
-          >
-            <View
-              style={[
-                styles.marker,
-                isEmpty ? styles.emptyMarker : styles.occupiedMarker,
-                isSelected && styles.selectedMarker,
-              ]}
-            />
-          </Marker>
-        );
-      })}
-    </>
+  const handlePress = (e: any) => {
+    const feature = e?.features?.[0];
+    if (feature?.properties?.id && onSpotPress) {
+      onSpotPress(feature.properties.id);
+    }
+  };
+
+  return (
+    <MapboxGL.ShapeSource
+      id="intelligenceSpots"
+      shape={geoJSON}
+      onPress={handlePress}
+    >
+      <MapboxGL.CircleLayer
+        id="intelligenceSpotsCircle"
+        style={{
+          circleRadius: [
+            'case',
+            ['get', 'isSelected'], 14,
+            8,
+          ],
+          circleColor: ['get', 'color'],
+          circleStrokeWidth: [
+            'case',
+            ['get', 'isSelected'], 3,
+            2,
+          ],
+          circleStrokeColor: '#FFFFFF',
+          circleOpacity: [
+            'case',
+            ['get', 'isEmpty'], 1,
+            0.6,
+          ],
+        }}
+      />
+    </MapboxGL.ShapeSource>
   );
 }
-
-const styles = StyleSheet.create({
-  marker: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1.5,
-    borderColor: 'white',
-  },
-  emptyMarker: {
-    backgroundColor: '#34C759',
-  },
-  occupiedMarker: {
-    backgroundColor: '#FF3B30',
-  },
-  selectedMarker: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#007AFF',
-  },
-});

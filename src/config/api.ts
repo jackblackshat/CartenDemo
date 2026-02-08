@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 
 const extra = Constants.expoConfig?.extra ?? {};
 
-const DEV_BASE_URL = Platform.OS === 'android' ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
+const DEV_BASE_URL = Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000';
 
 const API_BASE_URL: string = extra.apiBaseUrl ?? DEV_BASE_URL;
 
@@ -35,8 +35,24 @@ export const API = {
     return `${API_BASE_URL}/spot-detection?lat=${lat}&lng=${lng}&radius=${radius}`;
   },
 
-  spotIntelligence(lat: number, lng: number): string {
-    return `${API_BASE_URL}/spot-intelligence?lat=${lat}&lng=${lng}`;
+  spotIntelligence(
+    lat: number,
+    lng: number,
+    demo?: {
+      occupancy?: number | null;
+      forceReroute?: boolean;
+      cameraSpotAvailable?: boolean | null;
+      phoneSpotFree?: boolean | null;
+    },
+  ): string {
+    let url = `${API_BASE_URL}/spot-intelligence?lat=${lat}&lng=${lng}`;
+    if (demo?.occupancy != null) url += `&demoOccupancy=${demo.occupancy}`;
+    if (demo?.forceReroute) url += `&demoForceReroute=true`;
+    if (demo?.cameraSpotAvailable === true) url += `&demoCameraSpotAvailable=true`;
+    if (demo?.cameraSpotAvailable === false) url += `&demoCameraSpotAvailable=false`;
+    if (demo?.phoneSpotFree === true) url += `&demoPhoneSpotFree=true`;
+    if (demo?.phoneSpotFree === false) url += `&demoPhoneSpotFree=false`;
+    return url;
   },
 
   rerouteCheck(

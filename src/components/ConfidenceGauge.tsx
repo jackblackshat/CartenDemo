@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useDarkMode } from '../context/DarkModeContext';
 
 interface Props {
   confidence: number; // 0-1
@@ -9,19 +10,20 @@ interface Props {
 
 function getColor(confidence: number): string {
   const pct = confidence * 100;
-  if (pct > 70) return '#34C759';
-  if (pct >= 40) return '#FF9500';
-  return '#FF3B30';
+  if (pct > 70) return '#7FA98E';
+  if (pct >= 40) return '#C9A96E';
+  return '#B87C7C';
 }
 
 export default function ConfidenceGauge({ confidence, label, compact }: Props) {
+  const { isDark } = useDarkMode();
   const pct = Math.round(confidence * 100);
   const color = getColor(confidence);
 
   return (
     <View style={[styles.container, compact && styles.compact]}>
-      {label && <Text style={styles.label}>{label}</Text>}
-      <View style={styles.barBackground}>
+      {label && <Text style={[styles.label, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>{label}</Text>}
+      <View style={[styles.barBackground, { backgroundColor: isDark ? '#3A3A3C' : '#E8E8E8' }]}>
         <View style={[styles.barFill, { width: `${pct}%`, backgroundColor: color }]} />
       </View>
       <Text style={[styles.pct, { color }]}>{pct}%</Text>
@@ -40,13 +42,11 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 11,
-    color: '#666',
     width: 60,
   },
   barBackground: {
     flex: 1,
     height: 6,
-    backgroundColor: '#E5E5EA',
     borderRadius: 3,
     overflow: 'hidden',
   },

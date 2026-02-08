@@ -29,14 +29,14 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 const frequentSpots = [
-  { id: 'freq1', name: 'Financial District Garage', distance: '1.2 mi', confidence: 96, price: '$3/hr', eta: '8 min drive', visits: 24 },
-  { id: 'freq2', name: 'Union Square Lot', distance: '0.8 mi', confidence: 92, price: '$5/hr', eta: '6 min drive', visits: 18 },
+  { id: 'freq1', name: 'Horton Plaza Garage', distance: '0.4 mi', confidence: 96, price: '$3/hr', eta: '3 min drive', visits: 24 },
+  { id: 'freq2', name: 'Seaport Village Lot', distance: '0.8 mi', confidence: 92, price: '$5/hr', eta: '5 min drive', visits: 18 },
 ];
 
 const nearbySpots = [
-  { id: '1', name: 'Market Street', distance: '0.2 mi', confidence: 94, eta: '3 min drive' },
-  { id: '2', name: 'Valencia Street', distance: '0.4 mi', confidence: 87, eta: '5 min drive' },
-  { id: '3', name: 'Mission Street Garage', distance: '0.6 mi', confidence: 99, price: '$4/hr', eta: '7 min drive' },
+  { id: '1', name: '5th Ave (Gaslamp)', distance: '0.2 mi', confidence: 94, eta: '2 min drive' },
+  { id: '2', name: 'Island Avenue', distance: '0.4 mi', confidence: 87, eta: '4 min drive' },
+  { id: '3', name: 'East Village Garage', distance: '0.6 mi', confidence: 99, price: '$4/hr', eta: '5 min drive' },
 ];
 
 export default function SearchResultsScreen() {

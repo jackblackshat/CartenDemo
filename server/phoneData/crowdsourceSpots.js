@@ -1,38 +1,38 @@
-// Hardcoded San Francisco parking spots for crowdsourcing
+// Hardcoded San Diego parking spots for crowdsourcing
 export const SF_PARKING_SPOTS = [
   {
-    id: 'sf_mission_001',
-    lat: 37.7599,
-    lng: -122.4148,
-    name: 'Mission St & 16th St',
-    neighborhood: 'Mission District'
+    id: 'sd_gaslamp_001',
+    lat: 32.7107,
+    lng: -117.1604,
+    name: '5th Ave & Market St',
+    neighborhood: 'Gaslamp Quarter'
   },
   {
-    id: 'sf_soma_001',
-    lat: 37.7749,
-    lng: -122.4194,
-    name: 'Howard St & 4th St',
-    neighborhood: 'SOMA'
+    id: 'sd_eastvillage_001',
+    lat: 32.7127,
+    lng: -117.1541,
+    name: 'Park Blvd & Market St',
+    neighborhood: 'East Village'
   },
   {
-    id: 'sf_haight_001',
-    lat: 37.7694,
-    lng: -122.4464,
-    name: 'Haight St & Ashbury St',
-    neighborhood: 'Haight-Ashbury'
+    id: 'sd_littleitaly_001',
+    lat: 32.7259,
+    lng: -117.1689,
+    name: 'India St & Date St',
+    neighborhood: 'Little Italy'
   },
   {
-    id: 'sf_marina_001',
-    lat: 37.8024,
-    lng: -122.4381,
-    name: 'Chestnut St & Fillmore St',
-    neighborhood: 'Marina'
+    id: 'sd_hillcrest_001',
+    lat: 32.7489,
+    lng: -117.1631,
+    name: 'University Ave & 5th Ave',
+    neighborhood: 'Hillcrest'
   },
   {
-    id: 'sf_castro_001',
-    lat: 37.7609,
-    lng: -122.4350,
-    name: 'Castro St & Market St',
-    neighborhood: 'Castro'
+    id: 'sd_northpark_001',
+    lat: 32.7475,
+    lng: -117.1295,
+    name: '30th St & University Ave',
+    neighborhood: 'North Park'
   }
 ];

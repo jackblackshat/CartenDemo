@@ -4,11 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useDarkMode } from '../context/DarkModeContext';
 
 const activityItems = [
-  { id: 1, type: 'shared', location: 'Market Street', time: '2 hours ago', credits: 10, icon: 'location' as const, color: '#7FA98E' },
-  { id: 2, type: 'found', location: 'Valencia Street', time: '5 hours ago', icon: 'trending-up' as const, color: '#8B9D83' },
-  { id: 3, type: 'shared', location: 'Mission St Garage', time: '1 day ago', credits: 15, icon: 'location' as const, color: '#7FA98E' },
+  { id: 1, type: 'shared', location: '5th Ave (Gaslamp)', time: '2 hours ago', credits: 10, icon: 'location' as const, color: '#7FA98E' },
+  { id: 2, type: 'found', location: 'Island Ave', time: '5 hours ago', icon: 'trending-up' as const, color: '#8B9D83' },
+  { id: 3, type: 'shared', location: 'Horton Plaza Garage', time: '1 day ago', credits: 15, icon: 'location' as const, color: '#7FA98E' },
   { id: 4, type: 'achievement', title: 'Trust Builder', description: 'Shared 100 spots', time: '2 days ago', icon: 'trophy' as const, color: '#C9A96E' },
-  { id: 5, type: 'found', location: 'Howard Street', time: '3 days ago', icon: 'trending-up' as const, color: '#8B9D83' },
+  { id: 5, type: 'found', location: 'India St (Little Italy)', time: '3 days ago', icon: 'trending-up' as const, color: '#8B9D83' },
 ];
 
 export default function ActivityScreen() {
@@ -20,12 +20,7 @@ export default function ActivityScreen() {
       contentContainerStyle={styles.content}
     >
       {/* Header */}
-      <View style={[styles.headerCard, {
-        backgroundColor: isDark ? 'rgba(44, 44, 46, 0.9)' : 'rgba(255, 255, 255, 0.9)',
-        borderColor: isDark ? '#3A3A3C' : '#D3D5D7',
-      }]}>
-        <Text style={[styles.headerTitle, { color: isDark ? '#F5F5F7' : '#4A4F55' }]}>Activity</Text>
-      </View>
+      <Text style={[styles.headerTitle, { color: isDark ? '#F5F5F7' : '#4A4F55' }]}>Activity</Text>
 
       {/* Stats */}
       <View style={styles.statsRow}>
@@ -95,20 +90,21 @@ export default function ActivityScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 16 },
-  headerCard: {
-    borderRadius: 24, borderWidth: 1, padding: 16, marginBottom: 16,
-  },
-  headerTitle: { fontSize: 24, fontWeight: '700' },
+  content: { paddingHorizontal: 16, paddingTop: 60 },
+  headerTitle: { fontSize: 24, fontWeight: '700', marginBottom: 20 },
   statsRow: { flexDirection: 'row', gap: 8, marginBottom: 24 },
   statCard: {
-    flex: 1, borderRadius: 12, borderWidth: 1, padding: 16, alignItems: 'center',
+    flex: 1, borderRadius: 16, borderWidth: 1, padding: 16, alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
   },
   statValue: { fontSize: 24, fontWeight: '700' },
-  statLabel: { fontSize: 11, marginTop: 4 },
+  statLabel: { fontSize: 11, fontWeight: '500', marginTop: 4 },
   sectionTitle: { fontSize: 18, fontWeight: '600', marginBottom: 12 },
   activityCard: {
-    borderRadius: 12, borderWidth: 1, padding: 16, marginBottom: 12,
+    borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
   },
   activityRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   activityIcon: {

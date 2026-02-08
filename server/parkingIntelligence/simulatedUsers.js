@@ -3,20 +3,20 @@
 const BASE_USERS = [
   {
     id: 'sim_driver_1',
-    baseLat: 37.7603,
-    baseLng: -122.4142,
+    baseLat: 32.7109,
+    baseLng: -117.1601,
     speed: 'walking', // approaching on foot
   },
   {
     id: 'sim_driver_2',
-    baseLat: 37.7598,
-    baseLng: -122.4150,
+    baseLat: 32.7104,
+    baseLng: -117.1608,
     speed: 'driving', // still in car, circling
   },
   {
     id: 'sim_driver_3',
-    baseLat: 37.7605,
-    baseLng: -122.4138,
+    baseLat: 32.7111,
+    baseLng: -117.1597,
     speed: 'walking',
   },
 ];

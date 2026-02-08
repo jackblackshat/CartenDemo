@@ -1,28 +1,28 @@
 // Camera locations and YOLO detection results for parking intelligence
 // Results sourced from data_ml/CameraPrediction/main.ipynb output
 
-// 3 camera locations in SF near existing crowdsource spots
+// 3 camera locations in San Diego near popular parking areas
 const CAMERAS = [
   {
-    id: 'cam_mission_01',
-    name: 'Mission & 16th Parking Lot',
-    lat: 37.7601,
-    lng: -122.4145,
-    lotName: 'Mission District Lot A',
+    id: 'cam_gaslamp_01',
+    name: 'Gaslamp Quarter 5th Ave Lot',
+    lat: 32.7107,
+    lng: -117.1604,
+    lotName: 'Gaslamp District Lot A',
   },
   {
-    id: 'cam_soma_01',
-    name: 'SOMA Howard St Lot',
-    lat: 37.7752,
-    lng: -122.4190,
-    lotName: 'SOMA Parking Garage B',
+    id: 'cam_eastvillage_01',
+    name: 'East Village Market St Lot',
+    lat: 32.7127,
+    lng: -117.1541,
+    lotName: 'East Village Parking Garage B',
   },
   {
-    id: 'cam_castro_01',
-    name: 'Castro & Market Lot',
-    lat: 37.7612,
-    lng: -122.4347,
-    lotName: 'Castro Parking Lot C',
+    id: 'cam_littleitaly_01',
+    name: 'Little Italy India St Lot',
+    lat: 32.7259,
+    lng: -117.1689,
+    lotName: 'Little Italy Parking Lot C',
   },
 ];
 
@@ -105,9 +105,9 @@ export function projectSpotsToGeo(camera, spots, polygonData) {
     const lateralAngle = ROW_BASE_ANGLE[spot.row] + normX * 0.8;
 
     // Convert polar offset to lat/lng delta
-    // ~111,111 meters per degree latitude, ~85,000 at SF latitude
+    // ~111,111 meters per degree latitude, ~96,500 at SD latitude (~32.7°)
     const metersPerDegLat = 111111;
-    const metersPerDegLng = 85000;
+    const metersPerDegLng = 96500;
 
     const dLat = (depth * Math.cos(lateralAngle)) / metersPerDegLat;
     const dLng = (depth * Math.sin(lateralAngle)) / metersPerDegLng;
@@ -173,6 +173,37 @@ export function applyDemoVariation(spots) {
     const idx = seed % occupiedSpots.length;
     occupiedSpots[idx].label = 'empty';
     occupiedSpots[idx].confidence = 0.72 + ((seed % 20) / 100);
+  }
+
+  return varied;
+}
+
+/**
+ * Override spot occupancy to reach a target percentage.
+ * Flips empty→occupied or occupied→empty as needed.
+ */
+export function applyOccupancyOverride(spots, targetPercent) {
+  const total = spots.length;
+  const targetOccupied = Math.round((targetPercent / 100) * total);
+  const varied = spots.map((s) => ({ ...s }));
+
+  const currentOccupied = varied.filter((s) => s.label === 'occupied').length;
+  const diff = targetOccupied - currentOccupied;
+
+  if (diff > 0) {
+    // Need more occupied spots
+    const emptySpots = varied.filter((s) => s.label === 'empty');
+    for (let i = 0; i < Math.min(diff, emptySpots.length); i++) {
+      emptySpots[i].label = 'occupied';
+      emptySpots[i].confidence = 0.85;
+    }
+  } else if (diff < 0) {
+    // Need fewer occupied spots
+    const occupiedSpots = varied.filter((s) => s.label === 'occupied');
+    for (let i = 0; i < Math.min(-diff, occupiedSpots.length); i++) {
+      occupiedSpots[i].label = 'empty';
+      occupiedSpots[i].confidence = 0.90;
+    }
   }
 
   return varied;

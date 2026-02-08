@@ -8,6 +8,12 @@ const MAX_USEFUL_DISTANCE = 200; // meters — spots beyond this get 0 distance 
 const QUEUE_PENALTY_PER_CAR = 0.25; // -25% per car ahead
 const DECAY_RATE = 0.15; // exponential decay rate per minute for future prediction
 
+// Hardcoded confidence for Row C spots (demo / predictable values)
+const ROW_C_HARDCODED_CONFIDENCE = {
+  C1: 0.92, C2: 0.88, C3: 0.85, C4: 0.82, C5: 0.78, C6: 0.75,
+  C7: 0.72, C8: 0.68, C9: 0.65, C10: 0.62, C11: 0.58, C12: 0.55,
+};
+
 /**
  * Ranks empty spots by a combined confidence score.
  *
@@ -46,8 +52,11 @@ export function rankSpots(userLocation, detectedSpots, simulatedUsers) {
     }
     const queuePenalty = Math.max(0, 1 - queuePosition * QUEUE_PENALTY_PER_CAR);
 
-    // Overall confidence
-    const overallConfidence = spot.confidence * distancePenalty * queuePenalty;
+    // Overall confidence (Row C uses hardcoded values for demo)
+    let overallConfidence = spot.confidence * distancePenalty * queuePenalty;
+    if (spot.row === 'C' && ROW_C_HARDCODED_CONFIDENCE[spot.id] != null) {
+      overallConfidence = ROW_C_HARDCODED_CONFIDENCE[spot.id];
+    }
 
     // Future confidence at 1, 3, 5, 10 minutes via exponential decay
     const futureConfidence = {

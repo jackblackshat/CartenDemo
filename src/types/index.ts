@@ -113,6 +113,7 @@ export interface CrowdsourceSpot {
   isOpen?: boolean;
 }
 
+// Crowdsource response
 export interface CrowdsourceResponse {
   spotId: string;
   isOpen: boolean;
@@ -152,7 +153,7 @@ export interface UserProfile {
   accuracy: number;
 }
 
-// Parking Intelligence types
+// ML / Intelligence types
 export type CameraInfo = {
   id: string;
   name: string;
@@ -225,51 +226,3 @@ export type IntelligenceResponse = {
   simulatedUsers: number;
   timestamp: string;
 };
-
-// Work Scenario types
-export type WorkRecommendationType = 'highly_recommended' | 'good_option' | 'risky' | 'not_recommended';
-
-export interface LegalStatus {
-  isLegal: boolean;
-  reason: string | null;
-  description: string;
-  validUntil: string | null;
-  timeRemaining: string | null;
-}
-
-export interface PredictiveSource {
-  probability: number;
-  isOpen: boolean;
-  spacesTotal: number;
-  rate: { rate: number; currency: string; period: string };
-}
-
-export interface CameraSource {
-  available: boolean;
-  openSpots?: number;
-  totalSpots?: number;
-  confidence?: number;
-  cameraName?: string;
-  distance?: number;
-}
-
-export interface WorkRecommendation {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-  distance: number;
-  recommendationType: WorkRecommendationType;
-  confidence: number;
-  sources: {
-    legal: LegalStatus;
-    predictive: PredictiveSource;
-    camera: CameraSource;
-  };
-}
-
-export interface WorkScenarioResponse {
-  recommendations: WorkRecommendation[];
-  timestamp: string;
-  userLocation: { lat: number; lng: number };
-}
