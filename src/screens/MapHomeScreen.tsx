@@ -17,12 +17,19 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { useDarkMode } from '../context/DarkModeContext';
+import { useDemo } from '../context/DemoContext';
 import { useUserLocation } from '../hooks/useUserLocation';
+import useSpotIntelligence from '../hooks/useSpotIntelligence';
+import { useNavigationContext } from '../context/NavigationContext';
 import { usePhoneDataCollector } from '../lib/PhoneDataCollectorProvider';
 import { fetchParkingWithFallback, fetchCrowdsourceSpots } from '../services/api';
 import SpotCard from '../components/SpotCard';
+import SpotMarkers from '../components/SpotMarkers';
+import SpotRecommendationPanel from '../components/SpotRecommendationPanel';
+import RerouteCard from '../components/RerouteCard';
 import CrowdsourcePrompt from '../components/CrowdsourcePrompt';
 import LeavingModal from '../components/LeavingModal';
+import DevPanel from '../components/DevPanel';
 import type { ParkingSpot, CrowdsourceSpot } from '../types';
 import type { MapStackParamList } from '../navigation/types';
 
@@ -31,7 +38,7 @@ type NavProp = NativeStackNavigationProp<MapStackParamList>;
 const fallbackSpots: ParkingSpot[] = [
   {
     id: '1',
-    street: 'Market Street',
+    street: '5th Ave (Gaslamp)',
     distance: '0.2 mi',
     confidence: 94,
     type: 'street',
@@ -39,12 +46,12 @@ const fallbackSpots: ParkingSpot[] = [
     timeValid: '~5 mins',
     timeLimit: '2hr max',
     sources: ['camera', 'crowd'],
-    lat: 37.7899,
-    lng: -122.4025,
+    lat: 32.7120,
+    lng: -117.1598,
   },
   {
     id: '2',
-    street: 'Valencia Street',
+    street: 'Island Ave',
     distance: '0.4 mi',
     confidence: 87,
     type: 'street',
@@ -52,12 +59,12 @@ const fallbackSpots: ParkingSpot[] = [
     timeValid: '~8 mins',
     timeLimit: '3hr max',
     sources: ['prediction', 'api'],
-    lat: 37.7889,
-    lng: -122.4035,
+    lat: 32.7100,
+    lng: -117.1580,
   },
   {
     id: '3',
-    street: 'Mission Street Garage',
+    street: 'Horton Plaza Garage',
     distance: '0.6 mi',
     confidence: 99,
     type: 'garage',
@@ -65,8 +72,8 @@ const fallbackSpots: ParkingSpot[] = [
     timeValid: 'Real-time',
     price: '$4/hr',
     sources: ['api'],
-    lat: 37.7879,
-    lng: -122.4045,
+    lat: 32.7138,
+    lng: -117.1614,
   },
 ];
 
@@ -81,10 +88,16 @@ export default function MapHomeScreen() {
   const navigation = useNavigation<NavProp>();
   const { isDark } = useDarkMode();
   const phoneData = usePhoneDataCollector();
+  const { overrides, hasOverrides } = useDemo();
 
   const [filters, setFilters] = useState<string[]>(['Free', 'Paid', 'Garage', 'Street']);
   const [showLeavingModal, setShowLeavingModal] = useState(false);
   const [showParkedModal, setShowParkedModal] = useState(false);
+  const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
+  const [showRerouteCard, setShowRerouteCard] = useState(true);
+  const [showDevPanel, setShowDevPanel] = useState(false);
+  const { selectedDestination } = useNavigationContext();
+
 
   // API state
   const [spots, setSpots] = useState<ParkingSpot[]>(fallbackSpots);
@@ -100,6 +113,30 @@ export default function MapHomeScreen() {
   } | null>(null);
 
   const { location, loading: locationLoading } = useUserLocation(true);
+
+  // Spot intelligence: fetches ML-ranked spots from nearest camera
+  // Stabilize coords reference to avoid infinite re-fetch loop
+  const rawCoords = selectedDestination ?? location;
+  const stableLat = rawCoords?.lat ?? null;
+  const stableLng = rawCoords?.lng ?? null;
+  const intelligenceCoords = useMemo(
+    () => (stableLat && stableLng ? { lat: stableLat, lng: stableLng } : null),
+    [stableLat, stableLng],
+  );
+  const demoParams = useMemo(
+    () => ({
+      occupancy: overrides.occupancy,
+      forceReroute: overrides.forceReroute,
+      cameraSpotAvailable: overrides.cameraSpotAvailable,
+      phoneSpotFree: overrides.phoneSpotFree,
+    }),
+    [overrides.occupancy, overrides.forceReroute, overrides.cameraSpotAvailable, overrides.phoneSpotFree],
+  );
+  const { data: intelligence } = useSpotIntelligence(
+    intelligenceCoords,
+    !!intelligenceCoords,
+    demoParams,
+  );
 
   // --- Draggable bottom sheet ---
   const sheetHeight = useRef(new Animated.Value(SNAP_HALF)).current;
@@ -293,7 +330,13 @@ export default function MapHomeScreen() {
   const handleMapPress = useCallback((e: any) => {
     const feature = e?.features?.[0];
     if (feature?.properties?.id) {
-      navigation.navigate('SpotDetail', { id: feature.properties.id });
+      const coords = feature.geometry?.coordinates;
+      navigation.navigate('SpotDetail', {
+        id: feature.properties.id,
+        name: feature.properties.name,
+        lat: coords?.[1],
+        lng: coords?.[0],
+      });
     }
   }, [navigation]);
 
@@ -309,10 +352,7 @@ export default function MapHomeScreen() {
           compassEnabled={false}
         >
           <MapboxGL.Camera
-            centerCoordinate={[
-              location?.lng ?? -122.4025,
-              location?.lat ?? 37.7889,
-            ]}
+            centerCoordinate={[-117.1611, 32.7157]}
             zoomLevel={14}
             animationMode="flyTo"
             animationDuration={1000}
@@ -333,6 +373,14 @@ export default function MapHomeScreen() {
               }}
             />
           </MapboxGL.ShapeSource>
+          {/* ML-detected spot markers from camera */}
+          {intelligence?.allSpots && (
+            <SpotMarkers
+              spots={intelligence.allSpots}
+              selectedSpotId={selectedSpotId}
+              onSpotPress={setSelectedSpotId}
+            />
+          )}
         </MapboxGL.MapView>
 
         {/* Top Controls */}
@@ -371,6 +419,25 @@ export default function MapHomeScreen() {
           >
             <Ionicons
               name="layers"
+              size={20}
+              color={isDark ? '#AEAEB2' : '#8A8D91'}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setShowDevPanel(true)}
+            style={[
+              styles.controlButton,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(44, 44, 46, 0.95)'
+                  : 'rgba(255, 255, 255, 0.95)',
+                borderColor: isDark ? '#3A3A3C' : '#D3D5D7',
+              },
+            ]}
+          >
+            <Ionicons
+              name="construct"
               size={20}
               color={isDark ? '#AEAEB2' : '#8A8D91'}
             />
@@ -553,6 +620,35 @@ export default function MapHomeScreen() {
               ))}
             </View>
 
+            {/* Intelligence Panel */}
+            {intelligence && (
+              <>
+                {intelligence.rerouteDecision.shouldReroute && showRerouteCard && (
+                  <RerouteCard
+                    decision={intelligence.rerouteDecision}
+                    onReroute={() => {
+                      const alt = intelligence.rerouteDecision.alternative;
+                      if (alt) {
+                        navigation.navigate('Navigation', {
+                          destination: { name: alt.name, lat: alt.lat, lng: alt.lng },
+                        });
+                      }
+                      setShowRerouteCard(false);
+                    }}
+                    onDismiss={() => setShowRerouteCard(false)}
+                  />
+                )}
+                <SpotRecommendationPanel
+                  lotName={intelligence.camera.lotName}
+                  lotSummary={intelligence.lotSummary}
+                  recommendations={intelligence.recommendations}
+                  selectedSpotId={selectedSpotId}
+                  onSpotPress={setSelectedSpotId}
+                />
+                <View style={{ height: 12 }} />
+              </>
+            )}
+
             {/* Spot Cards */}
             {loading && (
               <ActivityIndicator
@@ -668,6 +764,12 @@ export default function MapHomeScreen() {
             (phoneData as any)?.userAction('leaving', 0);
             setShowLeavingModal(false);
           }}
+        />
+
+        {/* Dev Panel */}
+        <DevPanel
+          visible={showDevPanel}
+          onClose={() => setShowDevPanel(false)}
         />
       </View>
     </View>

@@ -16,6 +16,18 @@ _config();
 // crowdsourcing spots
 import { SF_PARKING_SPOTS } from './phoneData/crowdsourceSpots.js';
 import { calculateDistance } from './phoneData/utils.js';
+// parking intelligence
+import { findNearestCamera, projectSpotsToGeo, applyDemoVariation, applyOccupancyOverride, YOLO_RESULTS } from './parkingIntelligence/cameraData.js';
+import { rankSpots, makeRerouteDecision } from './parkingIntelligence/intelligenceEngine.js';
+import { getSimulatedUsers } from './parkingIntelligence/simulatedUsers.js';
+import { ALTERNATIVE_LOTS } from './parkingIntelligence/alternativeLots.js';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const polygonData = JSON.parse(readFileSync(join(__dirname, '..', 'data_ml', 'CameraPrediction', 'datasets', 'data', 'test', 'pLot3stalls.json'), 'utf8'));
 
 const port = process.env.PORT ? Number(process.env.PORT) : 4000;
 
@@ -259,6 +271,164 @@ app.post("/crowdsource-response", (req, res) => {
   });
 
   res.json({ success: true, message: 'Response recorded' });
+});
+
+// --- Parking Intelligence Endpoints ---
+
+app.get("/spot-detection", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  const { lat, lng, radius = 500 } = req.query;
+
+  if (!lat || !lng) {
+    res.status(400).send({ error: 'lat and lng parameters required' });
+    return;
+  }
+
+  const userLat = parseFloat(lat);
+  const userLng = parseFloat(lng);
+
+  const { camera, distance: cameraDistance } = findNearestCamera(userLat, userLng, calculateDistance);
+
+  if (!camera || cameraDistance > parseFloat(radius)) {
+    res.status(404).send({ error: 'No camera found within radius' });
+    return;
+  }
+
+  // Project YOLO results to geo coordinates around nearest camera
+  const geoSpots = projectSpotsToGeo(camera, YOLO_RESULTS, polygonData);
+  // Apply time-seeded demo variation
+  const variedSpots = applyDemoVariation(geoSpots);
+
+  res.json({
+    camera: {
+      id: camera.id,
+      name: camera.name,
+      lotName: camera.lotName,
+      lat: camera.lat,
+      lng: camera.lng,
+    },
+    cameraDistance: Math.round(cameraDistance),
+    spots: variedSpots,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get("/spot-intelligence", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  const { lat, lng, demoOccupancy, demoForceReroute, demoCameraSpotAvailable, demoPhoneSpotFree } = req.query;
+
+  if (!lat || !lng) {
+    res.status(400).send({ error: 'lat and lng parameters required' });
+    return;
+  }
+
+  const userLat = parseFloat(lat);
+  const userLng = parseFloat(lng);
+  const userLocation = { lat: userLat, lng: userLng };
+
+  // Find nearest camera
+  const { camera, distance: cameraDistance } = findNearestCamera(userLat, userLng, calculateDistance);
+
+  if (!camera) {
+    res.status(404).send({ error: 'No cameras available' });
+    return;
+  }
+
+  // Project + vary spots
+  const geoSpots = projectSpotsToGeo(camera, YOLO_RESULTS, polygonData);
+  let variedSpots = applyDemoVariation(geoSpots);
+
+  // Apply demo occupancy override if provided
+  if (demoOccupancy !== undefined) {
+    const pct = parseFloat(demoOccupancy);
+    if (!isNaN(pct) && pct >= 0 && pct <= 100) {
+      variedSpots = applyOccupancyOverride(variedSpots, pct);
+    }
+  }
+
+  // Get simulated users (empty when demo "phone/crowd: no one in spot")
+  const simulatedUsers = demoPhoneSpotFree === 'true' ? [] : getSimulatedUsers();
+
+  // Rank spots
+  let { recommendations, lotSummary } = rankSpots(userLocation, variedSpots, simulatedUsers);
+
+  // Demo: camera spot available = false → force low confidence so reroute triggers
+  if (demoCameraSpotAvailable === 'false' && recommendations.length > 0) {
+    const lowConf = 0.25;
+    recommendations = recommendations.map((r) => ({
+      ...r,
+      overallConfidence: lowConf,
+      futureConfidence: {
+        '1min': lowConf * 0.86, '3min': lowConf * 0.64, '5min': lowConf * 0.47, '10min': lowConf * 0.22,
+      },
+    }));
+  }
+
+  // Demo: camera spot available = true → force high confidence on best spot so no reroute
+  if (demoCameraSpotAvailable === 'true' && recommendations.length > 0) {
+    recommendations = recommendations.map((r, i) => {
+      if (i > 0) return r;
+      const highConf = 0.9;
+      return {
+        ...r,
+        overallConfidence: highConf,
+        futureConfidence: {
+          '1min': highConf * 0.86, '3min': highConf * 0.64, '5min': highConf * 0.47, '10min': highConf * 0.22,
+        },
+      };
+    });
+  }
+
+  // Check reroute
+  let rerouteDecision = makeRerouteDecision(recommendations, userLocation);
+
+  // Apply demo force reroute override
+  if (demoForceReroute === 'true' && !rerouteDecision.shouldReroute) {
+    rerouteDecision = {
+      ...rerouteDecision,
+      shouldReroute: true,
+      reason: rerouteDecision.reason || 'Demo: forced reroute',
+    };
+  }
+
+  res.json({
+    camera: {
+      id: camera.id,
+      name: camera.name,
+      lotName: camera.lotName,
+      lat: camera.lat,
+      lng: camera.lng,
+    },
+    cameraDistance: Math.round(cameraDistance),
+    lotSummary,
+    recommendations,
+    allSpots: variedSpots,
+    rerouteDecision,
+    simulatedUsers: simulatedUsers.length,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get("/reroute-check", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  const { originlat, originlng, destinationlat, destinationlng, currentConfidence } = req.query;
+
+  if (!originlat || !originlng || !destinationlat || !destinationlng) {
+    res.status(400).send({ error: 'origin and destination coordinates required' });
+    return;
+  }
+
+  const userLocation = { lat: parseFloat(originlat), lng: parseFloat(originlng) };
+  const confidence = currentConfidence ? parseFloat(currentConfidence) : 0;
+
+  // Build a fake recommendation array with just the confidence for the decision
+  const fakeRecommendations = confidence > 0
+    ? [{ overallConfidence: confidence }]
+    : [];
+
+  const decision = makeRerouteDecision(fakeRecommendations, userLocation);
+
+  res.json(decision);
 });
 
 app.listen(port, () => {

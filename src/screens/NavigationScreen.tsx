@@ -1,10 +1,13 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  ScrollView,
+  Linking,
+  Animated,
 } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,8 +16,55 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { useDarkMode } from '../context/DarkModeContext';
 import { useNavigationContext } from '../context/NavigationContext';
-import { useUserLocation, useRouting } from '../hooks';
+import { useDemo, DemoOverrides } from '../context/DemoContext';
+import { useUserLocation, useRouting, useSpotIntelligence } from '../hooks';
+import RerouteCard from '../components/RerouteCard';
+import DevPanel from '../components/DevPanel';
 import type { MapStackParamList } from '../navigation/types';
+
+// San Diego public transit options near Gaslamp Quarter
+const TRANSIT_OPTIONS = [
+  {
+    id: 'trolley_green',
+    type: 'trolley' as const,
+    name: 'MTS Green Line',
+    station: 'Gaslamp Quarter Station',
+    walkMinutes: 3,
+    frequency: 'Every 15 min',
+    icon: 'train-outline' as const,
+    color: '#4CAF50',
+  },
+  {
+    id: 'trolley_blue',
+    type: 'trolley' as const,
+    name: 'MTS Blue Line',
+    station: '5th Ave Station',
+    walkMinutes: 5,
+    frequency: 'Every 12 min',
+    icon: 'train-outline' as const,
+    color: '#2196F3',
+  },
+  {
+    id: 'bus_3',
+    type: 'bus' as const,
+    name: 'Bus Route 3',
+    station: '5th Ave & Market St',
+    walkMinutes: 2,
+    frequency: 'Every 20 min',
+    icon: 'bus-outline' as const,
+    color: '#FF9800',
+  },
+  {
+    id: 'rideshare',
+    type: 'rideshare' as const,
+    name: 'Rideshare Drop-off',
+    station: 'Gaslamp Quarter',
+    walkMinutes: 1,
+    frequency: 'On demand',
+    icon: 'car-outline' as const,
+    color: '#9C27B0',
+  },
+];
 
 type NavProp = NativeStackNavigationProp<MapStackParamList>;
 type NavRoute = RouteProp<MapStackParamList, 'Navigation'>;
@@ -24,19 +74,91 @@ export default function NavigationScreen() {
   const route = useRoute<NavRoute>();
   const { isDark } = useDarkMode();
   const { selectedDestination } = useNavigationContext();
+  const { overrides } = useDemo();
   const [isNavigating, setIsNavigating] = useState(false);
   const [isOverview, setIsOverview] = useState(false);
+  const [showDevPanel, setShowDevPanel] = useState(false);
+  const [spotTakenNotif, setSpotTakenNotif] = useState(false);
+  const notifOpacity = useRef(new Animated.Value(0)).current;
   const cameraRef = useRef<MapboxGL.Camera>(null);
 
   const destination = route.params?.destination ?? selectedDestination ?? {
-    name: 'Market St Parking',
-    lat: 37.7899,
-    lng: -122.4025,
+    name: '5th Ave Parking (Gaslamp)',
+    lat: 32.7115,
+    lng: -117.1600,
   };
 
   const { location: userLocation, loading: locationLoading } = useUserLocation(true);
+
+  const demoParams = useMemo(
+    () => ({
+      occupancy: overrides.occupancy,
+      forceReroute: overrides.forceReroute,
+      cameraSpotAvailable: overrides.cameraSpotAvailable,
+      phoneSpotFree: overrides.phoneSpotFree,
+    }),
+    [overrides.occupancy, overrides.forceReroute, overrides.cameraSpotAvailable, overrides.phoneSpotFree],
+  );
+
+  // Fetch spot intelligence for occupancy/parking-full detection and reroute
+  const { data: intelligence } = useSpotIntelligence(
+    destination ? { lat: destination.lat, lng: destination.lng } : null,
+    !!destination,
+    demoParams,
+  );
+  const occupancyRate = intelligence?.lotSummary?.occupancyRate ?? 0;
+  const rerouteDecision = intelligence?.rerouteDecision;
+  const parkingIsFull = occupancyRate > 0.85;
+
+  // Show spot-taken notification when dev overrides indicate reroute
+  const handleDevApply = useCallback((applied: DemoOverrides) => {
+    const shouldTrigger =
+      applied.forceReroute ||
+      applied.cameraSpotAvailable === false ||
+      (applied.occupancy !== null && applied.occupancy >= 85);
+
+    if (shouldTrigger) {
+      // Brief delay so panel close animation finishes
+      setTimeout(() => {
+        setSpotTakenNotif(true);
+        Animated.timing(notifOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      }, 400);
+    } else {
+      setSpotTakenNotif(false);
+      notifOpacity.setValue(0);
+    }
+  }, []);
+
+  const FALLBACK_ALT = { name: 'Horton Plaza Garage', lat: 32.7138, lng: -117.1614 };
+
+  const handleNotifPress = useCallback(() => {
+    const alt = rerouteDecision?.alternative ?? FALLBACK_ALT;
+    setSpotTakenNotif(false);
+    navigation.navigate('Navigation', {
+      destination: { name: alt.name, lat: alt.lat, lng: alt.lng },
+    });
+  }, [rerouteDecision, navigation]);
+
+  // If the user is far from the destination (>50km), simulate a nearby origin
+  // so the route preview shows a realistic local drive, not a 500mi trip
+  const routingOrigin = useMemo(() => {
+    if (!userLocation || !destination) return userLocation;
+    const dLat = userLocation.lat - destination.lat;
+    const dLng = userLocation.lng - destination.lng;
+    const approxKm = Math.sqrt(dLat * dLat + dLng * dLng) * 111;
+    if (approxKm > 50) {
+      // Place simulated origin ~1.5km north of destination
+      return { lat: destination.lat + 0.013, lng: destination.lng - 0.005 };
+    }
+    return userLocation;
+  }, [userLocation, destination]);
+
   const { route: routeData, loading: routeLoading } = useRouting(
-    userLocation ? { lat: userLocation.lat, lng: userLocation.lng } : null,
+    routingOrigin ? { lat: routingOrigin.lat, lng: routingOrigin.lng } : null,
     destination ? { lat: destination.lat, lng: destination.lng } : null,
   );
 
@@ -92,31 +214,15 @@ export default function NavigationScreen() {
           attributionEnabled={false}
           compassEnabled={false}
         >
-          {routeBounds ? (
-            <MapboxGL.Camera
-              bounds={{
-                ne: routeBounds.ne,
-                sw: routeBounds.sw,
-                paddingTop: 100,
-                paddingBottom: 420,
-                paddingLeft: 60,
-                paddingRight: 60,
-              }}
-              animationMode="flyTo"
-              animationDuration={1000}
-            />
-          ) : (
-            <MapboxGL.Camera
-              centerCoordinate={[
-                destination?.lng ?? -122.4025,
-                destination?.lat ?? 37.7889,
-              ]}
-              zoomLevel={13}
-              animationMode="flyTo"
-              animationDuration={1000}
-            />
-          )}
-          <MapboxGL.UserLocation visible />
+          <MapboxGL.Camera
+            centerCoordinate={[
+              destination?.lng ?? -117.1600,
+              destination?.lat ?? 32.7115,
+            ]}
+            zoomLevel={15}
+            animationMode="flyTo"
+            animationDuration={1000}
+          />
           {destination && (
             <MapboxGL.PointAnnotation
               id="destination"
@@ -125,17 +231,19 @@ export default function NavigationScreen() {
               <View style={styles.destMarker} />
             </MapboxGL.PointAnnotation>
           )}
-          <MapboxGL.ShapeSource id="routeSource" shape={routeGeoJSON}>
-            <MapboxGL.LineLayer
-              id="routeLine"
-              style={{
-                lineColor: '#7FA98E',
-                lineWidth: 4,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-          </MapboxGL.ShapeSource>
+          {routeCoords.length > 0 && (
+            <MapboxGL.ShapeSource id="routeSource" shape={routeGeoJSON}>
+              <MapboxGL.LineLayer
+                id="routeLine"
+                style={{
+                  lineColor: '#7FA98E',
+                  lineWidth: 4,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+              />
+            </MapboxGL.ShapeSource>
+          )}
         </MapboxGL.MapView>
 
         {isLoading && (
@@ -157,16 +265,27 @@ export default function NavigationScreen() {
           <Ionicons name="close" size={20} color={isDark ? '#F5F5F7' : '#4A4F55'} />
         </TouchableOpacity>
 
+        <TouchableOpacity
+          onPress={() => setShowDevPanel(true)}
+          style={[styles.devBtn, {
+            backgroundColor: isDark ? 'rgba(58, 58, 60, 0.7)' : 'rgba(255, 255, 255, 0.7)',
+            borderColor: isDark ? 'rgba(72, 72, 74, 0.4)' : 'rgba(255, 255, 255, 0.4)',
+          }]}
+        >
+          <Ionicons name="construct" size={20} color={isDark ? '#F5F5F7' : '#4A4F55'} />
+        </TouchableOpacity>
+
         {/* Bottom sheet */}
         <View style={[styles.bottomSheet, {
           backgroundColor: isDark ? 'rgba(44, 44, 46, 0.8)' : 'rgba(255, 255, 255, 0.8)',
           borderTopColor: isDark ? '#3A3A3C' : '#D3D5D7',
+          maxHeight: '75%',
         }]}>
           <View style={styles.handle}>
             <View style={[styles.handleBar, { backgroundColor: isDark ? '#48484A' : '#D3D5D7' }]} />
           </View>
 
-          <View style={styles.sheetBody}>
+          <ScrollView style={styles.sheetBody} showsVerticalScrollIndicator={false}>
             {/* Destination pill */}
             <View style={[styles.destPill, {
               backgroundColor: isDark ? 'rgba(58, 58, 60, 0.6)' : 'rgba(255, 255, 255, 0.6)',
@@ -178,7 +297,7 @@ export default function NavigationScreen() {
                   {destination?.name || 'Loading...'}
                 </Text>
                 <Text style={[styles.destCoords, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>
-                  {userLocation ? `${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}` : 'Getting location...'}
+                  {destination ? `${destination.lat.toFixed(4)}, ${destination.lng.toFixed(4)}` : 'Getting location...'}
                 </Text>
               </View>
             </View>
@@ -207,7 +326,7 @@ export default function NavigationScreen() {
             }]}>
               {[
                 { icon: 'time-outline' as const, label: 'Estimated arrival', value: arrivalTime },
-                { icon: 'trending-up-outline' as const, label: 'Traffic', value: 'Light', valueColor: '#7FA98E' },
+                { icon: 'trending-up-outline' as const, label: 'Traffic', value: (overrides.traffic ?? 'light').charAt(0).toUpperCase() + (overrides.traffic ?? 'light').slice(1), valueColor: overrides.traffic === 'heavy' ? '#B87C7C' : overrides.traffic === 'moderate' ? '#C9A96E' : '#7FA98E' },
               ].map((item, i) => (
                 <View key={i} style={styles.infoRow}>
                   <View style={styles.infoLeft}>
@@ -223,6 +342,72 @@ export default function NavigationScreen() {
                 </View>
               ))}
             </View>
+
+            {/* Reroute suggestion (camera/occupancy/demo suggests alternative lot) */}
+            {rerouteDecision?.shouldReroute && rerouteDecision?.alternative && (
+              <RerouteCard
+                decision={rerouteDecision}
+                onReroute={() => {
+                  const alt = rerouteDecision.alternative;
+                  if (alt) {
+                    navigation.navigate('Navigation', {
+                      destination: { name: alt.name, lat: alt.lat, lng: alt.lng },
+                    });
+                  }
+                }}
+                onDismiss={() => {}}
+              />
+            )}
+
+            {/* Transit alternatives when parking is full */}
+            {parkingIsFull && (
+              <View style={[styles.transitContainer, {
+                backgroundColor: isDark ? 'rgba(58, 58, 60, 0.5)' : 'rgba(255, 255, 255, 0.5)',
+                borderColor: isDark ? 'rgba(72, 72, 74, 0.5)' : 'rgba(255, 255, 255, 0.5)',
+              }]}>
+                <View style={styles.transitHeader}>
+                  <View style={styles.transitWarning}>
+                    <Ionicons name="warning" size={18} color="#B87C7C" />
+                    <Text style={[styles.transitTitle, { color: isDark ? '#F5F5F7' : '#4A4F55' }]}>
+                      Parking {Math.round(occupancyRate * 100)}% Full
+                    </Text>
+                  </View>
+                  <Text style={[styles.transitSubtitle, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>
+                    Consider public transit alternatives
+                  </Text>
+                </View>
+                {TRANSIT_OPTIONS.map((opt) => (
+                  <TouchableOpacity
+                    key={opt.id}
+                    style={[styles.transitOption, {
+                      backgroundColor: isDark ? 'rgba(44, 44, 46, 0.6)' : 'rgba(248, 249, 246, 0.6)',
+                      borderColor: isDark ? 'rgba(72, 72, 74, 0.4)' : 'rgba(211, 213, 215, 0.4)',
+                    }]}
+                    onPress={() => {
+                      if (opt.type === 'rideshare') {
+                        Linking.openURL('https://m.uber.com/').catch(() => {});
+                      }
+                    }}
+                    activeOpacity={opt.type === 'rideshare' ? 0.7 : 1}
+                  >
+                    <View style={[styles.transitIcon, { backgroundColor: opt.color + '20' }]}>
+                      <Ionicons name={opt.icon} size={20} color={opt.color} />
+                    </View>
+                    <View style={styles.transitInfo}>
+                      <Text style={[styles.transitName, { color: isDark ? '#F5F5F7' : '#4A4F55' }]}>
+                        {opt.name}
+                      </Text>
+                      <Text style={[styles.transitStation, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>
+                        {opt.station} · {opt.walkMinutes} min walk
+                      </Text>
+                    </View>
+                    <Text style={[styles.transitFreq, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>
+                      {opt.frequency}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
             {/* Start button */}
             <TouchableOpacity
@@ -247,8 +432,27 @@ export default function NavigationScreen() {
             >
               <Text style={styles.altText}>Find Alternative Spot</Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
+
+        {/* Spot taken notification */}
+        {spotTakenNotif && (
+          <Animated.View style={[styles.spotTakenNotif, { opacity: notifOpacity }]}>
+            <TouchableOpacity
+              onPress={handleNotifPress}
+              style={styles.spotTakenPill}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="warning" size={16} color="#FFFFFF" />
+              <Text style={styles.spotTakenText} numberOfLines={1}>
+                Spot taken — tap to reroute to {rerouteDecision?.alternative?.name ?? FALLBACK_ALT.name}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
+            </TouchableOpacity>
+          </Animated.View>
+        )}
+
+        <DevPanel visible={showDevPanel} onClose={() => setShowDevPanel(false)} onApply={handleDevApply} />
       </View>
     );
   }
@@ -277,12 +481,34 @@ export default function NavigationScreen() {
             animationMode="flyTo"
             animationDuration={800}
           />
+        ) : routeCoords.length > 0 ? (
+          <MapboxGL.Camera
+            ref={cameraRef}
+            bounds={{
+              ne: [
+                Math.max(routeCoords[0][0], routeCoords[routeCoords.length - 1][0]) + 0.002,
+                Math.max(routeCoords[0][1], routeCoords[routeCoords.length - 1][1]) + 0.002,
+              ],
+              sw: [
+                Math.min(routeCoords[0][0], routeCoords[routeCoords.length - 1][0]) - 0.002,
+                Math.min(routeCoords[0][1], routeCoords[routeCoords.length - 1][1]) - 0.002,
+              ],
+              paddingTop: 100,
+              paddingBottom: 100,
+              paddingLeft: 40,
+              paddingRight: 40,
+            }}
+            animationMode="flyTo"
+            animationDuration={800}
+          />
         ) : (
           <MapboxGL.Camera
             ref={cameraRef}
-            followUserLocation
-            followZoomLevel={15}
-            followPitch={0}
+            centerCoordinate={[
+              destination?.lng ?? -117.1600,
+              destination?.lat ?? 32.7115,
+            ]}
+            zoomLevel={15}
             animationMode="flyTo"
             animationDuration={500}
           />
@@ -322,21 +548,58 @@ export default function NavigationScreen() {
           <Text style={[styles.endText, { color: isDark ? '#F5F5F7' : '#4A4F55' }]}>End</Text>
         </TouchableOpacity>
 
-        {/* Overview / Re-center toggle */}
-        <TouchableOpacity
-          onPress={() => setIsOverview((prev) => !prev)}
-          style={[styles.overviewBtn, {
-            backgroundColor: isDark ? 'rgba(58, 58, 60, 0.7)' : 'rgba(255, 255, 255, 0.7)',
-            borderColor: isDark ? 'rgba(72, 72, 74, 0.5)' : 'rgba(255, 255, 255, 0.5)',
-          }]}
-        >
-          <Ionicons
-            name={isOverview ? 'navigate' : 'map-outline'}
-            size={20}
-            color={isDark ? '#F5F5F7' : '#4A4F55'}
-          />
-        </TouchableOpacity>
+        <View style={styles.navTopRight}>
+          {/* DEV button */}
+          <TouchableOpacity
+            onPress={() => setShowDevPanel(true)}
+            style={[styles.overviewBtn, {
+              backgroundColor: isDark ? 'rgba(58, 58, 60, 0.7)' : 'rgba(255, 255, 255, 0.7)',
+              borderColor: isDark ? 'rgba(72, 72, 74, 0.5)' : 'rgba(255, 255, 255, 0.5)',
+            }]}
+          >
+            <Ionicons name="construct" size={20} color={isDark ? '#F5F5F7' : '#4A4F55'} />
+          </TouchableOpacity>
+
+          {/* Overview / Re-center toggle */}
+          <TouchableOpacity
+            onPress={() => setIsOverview((prev) => !prev)}
+            style={[styles.overviewBtn, {
+              backgroundColor: isDark ? 'rgba(58, 58, 60, 0.7)' : 'rgba(255, 255, 255, 0.7)',
+              borderColor: isDark ? 'rgba(72, 72, 74, 0.5)' : 'rgba(255, 255, 255, 0.5)',
+            }]}
+          >
+            <Ionicons
+              name={isOverview ? 'navigate' : 'map-outline'}
+              size={20}
+              color={isDark ? '#F5F5F7' : '#4A4F55'}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {/* Reroute banner when navigating and lot confidence is low */}
+      {rerouteDecision?.shouldReroute && rerouteDecision?.alternative && (
+        <TouchableOpacity
+          onPress={() => {
+            const alt = rerouteDecision.alternative;
+            if (alt) {
+              navigation.navigate('Navigation', {
+                destination: { name: alt.name, lat: alt.lat, lng: alt.lng },
+              });
+            }
+          }}
+          style={[styles.rerouteBanner, {
+            backgroundColor: isDark ? 'rgba(201, 169, 110, 0.95)' : 'rgba(201, 169, 110, 0.95)',
+            borderColor: '#C9A96E',
+          }]}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="swap-horizontal" size={20} color="#4A4F55" />
+          <Text style={styles.rerouteBannerText} numberOfLines={1}>
+            Lot full – tap to reroute to {rerouteDecision.alternative?.name}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* Bottom ETA */}
       <View style={[styles.etaBar, {
@@ -359,6 +622,25 @@ export default function NavigationScreen() {
           <Text style={[styles.etaUnit, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>min</Text>
         </View>
       </View>
+
+      {/* Spot taken notification */}
+      {spotTakenNotif && (
+        <Animated.View style={[styles.spotTakenNotif, { opacity: notifOpacity }]}>
+          <TouchableOpacity
+            onPress={handleNotifPress}
+            style={styles.spotTakenPill}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="warning" size={16} color="#FFFFFF" />
+            <Text style={styles.spotTakenText} numberOfLines={1}>
+              Spot taken — tap to reroute to {rerouteDecision?.alternative?.name ?? FALLBACK_ALT.name}
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color="#FFFFFF" />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
+      <DevPanel visible={showDevPanel} onClose={() => setShowDevPanel(false)} onApply={handleDevApply} />
     </View>
   );
 }
@@ -384,6 +666,11 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     position: 'absolute', top: 56, left: 16,
+    width: 44, height: 44, borderRadius: 22, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  devBtn: {
+    position: 'absolute', top: 56, right: 16,
     width: 44, height: 44, borderRadius: 22, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
   },
@@ -438,11 +725,26 @@ const styles = StyleSheet.create({
   endBtn: {
     paddingHorizontal: 24, paddingVertical: 12, borderRadius: 999, borderWidth: 1,
   },
+  navTopRight: { flexDirection: 'row', gap: 8 },
   overviewBtn: {
     width: 44, height: 44, borderRadius: 22, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
   },
   endText: { fontSize: 14, fontWeight: '700' },
+  rerouteBanner: {
+    position: 'absolute',
+    bottom: 100,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+  },
+  rerouteBannerText: { fontSize: 14, fontWeight: '600', color: '#4A4F55', flex: 1 },
   etaBar: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 24, paddingVertical: 20, borderTopWidth: 1,
@@ -453,4 +755,50 @@ const styles = StyleSheet.create({
   etaRight: { alignItems: 'flex-end' },
   etaValue: { fontSize: 36, fontWeight: '700', color: '#7FA98E' },
   etaUnit: { fontSize: 14, fontWeight: '600' },
+  transitContainer: {
+    borderRadius: 24, borderWidth: 1, padding: 16, marginBottom: 20,
+  },
+  transitHeader: { marginBottom: 12 },
+  transitWarning: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  transitTitle: { fontSize: 16, fontWeight: '700' },
+  transitSubtitle: { fontSize: 13, marginTop: 4, marginLeft: 26 },
+  transitOption: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 12, borderRadius: 16, borderWidth: 1, marginBottom: 8,
+  },
+  transitIcon: {
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  transitInfo: { flex: 1 },
+  transitName: { fontSize: 14, fontWeight: '600' },
+  transitStation: { fontSize: 12, marginTop: 2 },
+  transitFreq: { fontSize: 11, fontWeight: '600' },
+  spotTakenNotif: {
+    position: 'absolute',
+    top: 110,
+    right: 16,
+    left: 16,
+    zIndex: 20,
+  },
+  spotTakenPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#B87C7C',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  spotTakenText: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });

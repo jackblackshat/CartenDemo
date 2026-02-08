@@ -40,7 +40,7 @@ export default function SpotCard({ spot }: SpotCardProps) {
   return (
     <TouchableOpacity
       activeOpacity={0.7}
-      onPress={() => navigation.navigate('SpotDetail', { id: spot.id })}
+      onPress={() => navigation.navigate('SpotDetail', { id: spot.id, name: spot.street, lat: spot.lat, lng: spot.lng })}
       style={[
         styles.card,
         {
@@ -113,7 +113,9 @@ export default function SpotCard({ spot }: SpotCardProps) {
           {spot.timeLimit || 'No limit'}
         </Text>
         <TouchableOpacity
-          onPress={() => navigation.navigate('Navigation', { destination: undefined })}
+          onPress={() => navigation.navigate('Navigation', {
+            destination: { name: spot.street, lat: spot.lat, lng: spot.lng },
+          })}
           style={styles.navigateButton}
         >
           <Ionicons name="navigate" size={14} color="#FFFFFF" />

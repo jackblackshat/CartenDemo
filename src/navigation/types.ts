@@ -3,7 +3,7 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 export type MapStackParamList = {
   MapHome: undefined;
   SearchResults: undefined;
-  SpotDetail: { id: string };
+  SpotDetail: { id: string; name?: string; lat?: number; lng?: number };
   Navigation: { destination?: { name: string; lat: number; lng: number } };
   GaragePaid: { id: string };
   Heatmap: undefined;

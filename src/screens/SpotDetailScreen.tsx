@@ -21,14 +21,14 @@ type NavProp = NativeStackNavigationProp<MapStackParamList>;
 type SpotDetailRoute = RouteProp<MapStackParamList, 'SpotDetail'>;
 
 const spotData = {
-  id: 'market-st-123',
-  name: 'Market Street',
-  crossStreet: '5th Street',
+  id: 'gaslamp-5th-123',
+  name: '5th Avenue',
+  crossStreet: 'Market Street',
   distance: '0.2 mi',
   walkTime: '2 min',
   confidence: 94,
   sources: [
-    { type: 'camera', name: 'Street Camera', confidence: 98, details: 'Camera #4521, Market St', lastUpdate: '2 min ago', icon: 'camera-outline' as const, color: '#7FA98E' },
+    { type: 'camera', name: 'Street Camera', confidence: 98, details: 'Camera #4521, 5th Ave', lastUpdate: '2 min ago', icon: 'camera-outline' as const, color: '#7FA98E' },
     { type: 'crowd', name: 'Crowd Report', confidence: 85, details: 'Reported by verified user', lastUpdate: '10 min ago', icon: 'people-outline' as const, color: '#8B9D83' },
     { type: 'prediction', name: 'Prediction Model', confidence: 72, details: 'Based on historical patterns', lastUpdate: 'Real-time', icon: 'trending-up-outline' as const, color: '#C9A96E' },
     { type: 'api', name: 'City Parking Sensor', confidence: 91, details: 'Municipal sensor network', lastUpdate: '1 min ago', icon: 'server-outline' as const, color: '#8FA88E' },
@@ -52,9 +52,9 @@ const spotData = {
     { hour: '8PM', availability: 92 }, { hour: '9PM', availability: 95 },
   ],
   similarSpots: [
-    { id: '1', name: '6th Street', distance: '50ft further', confidence: 98, walkTime: '3 min' },
-    { id: '2', name: 'Mission Street', distance: '0.1 mi', confidence: 82, walkTime: '4 min' },
-    { id: '3', name: 'Howard Street', distance: '0.15 mi', confidence: 76, walkTime: '5 min' },
+    { id: '1', name: '6th Avenue', distance: '50ft further', confidence: 98, walkTime: '3 min', lat: 32.7125, lng: -117.1590 },
+    { id: '2', name: 'Island Avenue', distance: '0.1 mi', confidence: 82, walkTime: '4 min', lat: 32.7100, lng: -117.1580 },
+    { id: '3', name: 'J Street', distance: '0.15 mi', confidence: 76, walkTime: '5 min', lat: 32.7110, lng: -117.1570 },
   ],
 };
 
@@ -71,6 +71,11 @@ export default function SpotDetailScreen() {
   const [saved, setSaved] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const confidenceColor = getConfidenceColor(spotData.confidence);
+
+  // Use coordinates from route params, falling back to hardcoded defaults
+  const spotLat = route.params.lat ?? 32.7115;
+  const spotLng = route.params.lng ?? -117.1600;
+  const spotName = route.params.name ?? `${spotData.name} at ${spotData.crossStreet}`;
 
   return (
     <View style={[styles.flex, { backgroundColor: isDark ? '#1C1C1E' : '#F5F1E8' }]}>
@@ -89,14 +94,14 @@ export default function SpotDetailScreen() {
             rotateEnabled={false}
           >
             <MapboxGL.Camera
-              centerCoordinate={[-122.4025, 37.7899]}
+              centerCoordinate={[spotLng, spotLat]}
               zoomLevel={16}
               animationMode="flyTo"
               animationDuration={1000}
             />
             <MapboxGL.PointAnnotation
               id="spot-marker"
-              coordinate={[-122.4025, 37.7899]}
+              coordinate={[spotLng, spotLat]}
             >
               <View style={styles.markerContainer}>
                 <View style={styles.marker}>
@@ -139,41 +144,6 @@ export default function SpotDetailScreen() {
         </View>
 
         <View style={styles.body}>
-          {/* Confidence Breakdown */}
-          <View style={[styles.section, { backgroundColor: isDark ? '#2C2C2E' : '#FFFFFF', borderColor: isDark ? '#3A3A3C' : '#D3D5D7' }]}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="trending-up" size={20} color="#7FA98E" />
-              <Text style={[styles.sectionTitle, { color: isDark ? '#F5F5F7' : '#4A4F55' }]}>Confidence Breakdown</Text>
-            </View>
-
-            <View style={styles.ringContainer}>
-              <ConfidenceRing confidence={spotData.confidence} />
-            </View>
-
-            <Text style={[styles.sourceLabel, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>Data Sources</Text>
-            {spotData.sources.map((source, idx) => (
-              <View key={idx} style={[styles.sourceCard, {
-                backgroundColor: isDark ? '#3A3A3C' : '#F5F1E8',
-                borderColor: isDark ? '#48484A' : '#D3D5D7',
-              }]}>
-                <View style={styles.sourceRow}>
-                  <View style={[styles.sourceIcon, { backgroundColor: `${source.color}20`, borderColor: source.color }]}>
-                    <Ionicons name={source.icon} size={20} color={source.color} />
-                  </View>
-                  <View style={styles.sourceInfo}>
-                    <Text style={[styles.sourceName, { color: isDark ? '#F5F5F7' : '#4A4F55' }]}>{source.name}</Text>
-                    <Text style={[styles.sourceDetails, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>{source.details}</Text>
-                  </View>
-                  <Text style={[styles.sourceConf, { color: source.color }]}>{source.confidence}%</Text>
-                </View>
-                <View style={[styles.progressBar, { backgroundColor: isDark ? '#48484A' : '#D3D5D7' }]}>
-                  <View style={[styles.progressFill, { width: `${source.confidence}%`, backgroundColor: source.color }]} />
-                </View>
-                <Text style={[styles.sourceUpdate, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>Last updated: {source.lastUpdate}</Text>
-              </View>
-            ))}
-          </View>
-
           {/* Rules */}
           <View style={[styles.section, { backgroundColor: isDark ? '#2C2C2E' : '#FFFFFF', borderColor: isDark ? '#3A3A3C' : '#D3D5D7' }]}>
             <View style={styles.sectionHeader}>
@@ -223,13 +193,48 @@ export default function SpotDetailScreen() {
             <Text style={[styles.chartNote, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>Based on last 30 days of data</Text>
           </View>
 
+          {/* Confidence Breakdown */}
+          <View style={[styles.section, { backgroundColor: isDark ? '#2C2C2E' : '#FFFFFF', borderColor: isDark ? '#3A3A3C' : '#D3D5D7' }]}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="trending-up" size={20} color="#7FA98E" />
+              <Text style={[styles.sectionTitle, { color: isDark ? '#F5F5F7' : '#4A4F55' }]}>Confidence Breakdown</Text>
+            </View>
+
+            <View style={styles.ringContainer}>
+              <ConfidenceRing confidence={spotData.confidence} />
+            </View>
+
+            <Text style={[styles.sourceLabel, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>Data Sources</Text>
+            {spotData.sources.map((source, idx) => (
+              <View key={idx} style={[styles.sourceCard, {
+                backgroundColor: isDark ? '#3A3A3C' : '#F5F1E8',
+                borderColor: isDark ? '#48484A' : '#D3D5D7',
+              }]}>
+                <View style={styles.sourceRow}>
+                  <View style={[styles.sourceIcon, { backgroundColor: `${source.color}20`, borderColor: source.color }]}>
+                    <Ionicons name={source.icon} size={20} color={source.color} />
+                  </View>
+                  <View style={styles.sourceInfo}>
+                    <Text style={[styles.sourceName, { color: isDark ? '#F5F5F7' : '#4A4F55' }]}>{source.name}</Text>
+                    <Text style={[styles.sourceDetails, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>{source.details}</Text>
+                  </View>
+                  <Text style={[styles.sourceConf, { color: source.color }]}>{source.confidence}%</Text>
+                </View>
+                <View style={[styles.progressBar, { backgroundColor: isDark ? '#48484A' : '#D3D5D7' }]}>
+                  <View style={[styles.progressFill, { width: `${source.confidence}%`, backgroundColor: source.color }]} />
+                </View>
+                <Text style={[styles.sourceUpdate, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>Last updated: {source.lastUpdate}</Text>
+              </View>
+            ))}
+          </View>
+
           {/* Similar spots */}
           <Text style={[styles.nearbyTitle, { color: isDark ? '#F5F5F7' : '#4A4F55' }]}>Other spots nearby</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.similarScroll}>
             {spotData.similarSpots.map((s) => (
               <TouchableOpacity
                 key={s.id}
-                onPress={() => navigation.push('SpotDetail', { id: s.id })}
+                onPress={() => navigation.push('SpotDetail', { id: s.id, name: s.name, lat: s.lat, lng: s.lng })}
                 style={[styles.similarCard, {
                   backgroundColor: isDark ? '#2C2C2E' : '#FFFFFF',
                   borderColor: isDark ? '#3A3A3C' : '#D3D5D7',
@@ -259,7 +264,9 @@ export default function SpotDetailScreen() {
         backgroundColor: isDark ? 'rgba(28, 28, 30, 0.95)' : 'rgba(245, 241, 232, 0.95)',
       }]}>
         <TouchableOpacity
-          onPress={() => navigation.navigate('Navigation', { destination: undefined })}
+          onPress={() => navigation.navigate('Navigation', {
+            destination: { name: spotName, lat: spotLat, lng: spotLng },
+          })}
           style={styles.navButton}
         >
           <Ionicons name="navigate" size={20} color="#FFFFFF" />
@@ -369,7 +376,8 @@ const styles = StyleSheet.create({
   similarTime: { fontSize: 12 },
   bottomBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    flexDirection: 'row', gap: 12, padding: 16, paddingBottom: 32,
+    flexDirection: 'row', gap: 12, padding: 16, paddingBottom: 40,
+    zIndex: 100, elevation: 10,
   },
   navButton: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

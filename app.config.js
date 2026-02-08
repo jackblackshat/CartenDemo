@@ -1,6 +1,6 @@
 export default {
-  name: 'OnSpot',
-  slug: 'onspot',
+  name: 'Carten',
+  slug: 'carten',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
@@ -13,14 +13,14 @@ export default {
   },
   ios: {
     supportsTablet: false,
-    bundleIdentifier: 'com.onspot.parking',
+    bundleIdentifier: 'com.carten.parking',
     infoPlist: {
       NSLocationWhenInUseUsageDescription:
-        'OnSpot needs your location to find nearby parking.',
+        'Carten needs your location to find nearby parking.',
       NSLocationAlwaysAndWhenInUseUsageDescription:
-        'OnSpot uses background location to detect when you park and leave.',
+        'Carten uses background location to detect when you park and leave.',
       NSLocationAlwaysUsageDescription:
-        'OnSpot uses background location to detect parking events.',
+        'Carten uses background location to detect parking events.',
     },
   },
   android: {
@@ -33,18 +33,18 @@ export default {
       'ACCESS_COARSE_LOCATION',
       'ACCESS_BACKGROUND_LOCATION',
     ],
-    package: 'com.onspot.parking',
+    package: 'com.carten.parking',
   },
   plugins: [
     [
       'expo-location',
       {
         locationAlwaysAndWhenInUsePermission:
-          'OnSpot uses background location to detect when you park and leave.',
+          'Carten uses background location to detect when you park and leave.',
         locationAlwaysPermission:
-          'OnSpot uses background location to detect parking events.',
+          'Carten uses background location to detect parking events.',
         locationWhenInUsePermission:
-          'OnSpot needs your location to find nearby parking.',
+          'Carten needs your location to find nearby parking.',
         isAndroidBackgroundLocationEnabled: true,
         isAndroidForegroundServiceEnabled: true,
       },

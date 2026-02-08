@@ -4,7 +4,6 @@ import MapboxGL from '@rnmapbox/maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useDarkMode } from '../context/DarkModeContext';
-import { useUserLocation } from '../hooks/useUserLocation';
 
 const timeOptions = [
   { label: 'Now', value: 0 },
@@ -16,15 +15,33 @@ const timeOptions = [
 const heatmapData: GeoJSON.FeatureCollection = {
   type: 'FeatureCollection',
   features: [
-    { type: 'Feature', properties: { intensity: 0.9, color: '#7FA98E' }, geometry: { type: 'Point', coordinates: [-122.4025, 37.7899] } },
-    { type: 'Feature', properties: { intensity: 0.85, color: '#7FA98E' }, geometry: { type: 'Point', coordinates: [-122.4010, 37.7905] } },
-    { type: 'Feature', properties: { intensity: 0.7, color: '#7FA98E' }, geometry: { type: 'Point', coordinates: [-122.4040, 37.7910] } },
-    { type: 'Feature', properties: { intensity: 0.5, color: '#C9A96E' }, geometry: { type: 'Point', coordinates: [-122.4035, 37.7889] } },
-    { type: 'Feature', properties: { intensity: 0.45, color: '#C9A96E' }, geometry: { type: 'Point', coordinates: [-122.4060, 37.7895] } },
-    { type: 'Feature', properties: { intensity: 0.4, color: '#C9A96E' }, geometry: { type: 'Point', coordinates: [-122.4015, 37.7880] } },
-    { type: 'Feature', properties: { intensity: 0.2, color: '#B87C7C' }, geometry: { type: 'Point', coordinates: [-122.4045, 37.7879] } },
-    { type: 'Feature', properties: { intensity: 0.15, color: '#B87C7C' }, geometry: { type: 'Point', coordinates: [-122.4070, 37.7870] } },
-    { type: 'Feature', properties: { intensity: 0.1, color: '#B87C7C' }, geometry: { type: 'Point', coordinates: [-122.4000, 37.7865] } },
+    // Gaslamp Quarter
+    { type: 'Feature', properties: { intensity: 0.9, color: '#7FA98E' }, geometry: { type: 'Point', coordinates: [-117.1600, 32.7115] } },
+    { type: 'Feature', properties: { intensity: 0.85, color: '#7FA98E' }, geometry: { type: 'Point', coordinates: [-117.1585, 32.7120] } },
+    { type: 'Feature', properties: { intensity: 0.7, color: '#7FA98E' }, geometry: { type: 'Point', coordinates: [-117.1615, 32.7125] } },
+    { type: 'Feature', properties: { intensity: 0.5, color: '#C9A96E' }, geometry: { type: 'Point', coordinates: [-117.1610, 32.7100] } },
+    { type: 'Feature', properties: { intensity: 0.45, color: '#C9A96E' }, geometry: { type: 'Point', coordinates: [-117.1635, 32.7108] } },
+    { type: 'Feature', properties: { intensity: 0.4, color: '#C9A96E' }, geometry: { type: 'Point', coordinates: [-117.1590, 32.7095] } },
+    { type: 'Feature', properties: { intensity: 0.2, color: '#B87C7C' }, geometry: { type: 'Point', coordinates: [-117.1620, 32.7090] } },
+    { type: 'Feature', properties: { intensity: 0.15, color: '#B87C7C' }, geometry: { type: 'Point', coordinates: [-117.1645, 32.7085] } },
+    { type: 'Feature', properties: { intensity: 0.1, color: '#B87C7C' }, geometry: { type: 'Point', coordinates: [-117.1575, 32.7080] } },
+    // Little Italy
+    { type: 'Feature', properties: { intensity: 0.8, color: '#7FA98E' }, geometry: { type: 'Point', coordinates: [-117.1685, 32.7225] } },
+    { type: 'Feature', properties: { intensity: 0.6, color: '#C9A96E' }, geometry: { type: 'Point', coordinates: [-117.1700, 32.7235] } },
+    { type: 'Feature', properties: { intensity: 0.35, color: '#C9A96E' }, geometry: { type: 'Point', coordinates: [-117.1672, 32.7215] } },
+    { type: 'Feature', properties: { intensity: 0.2, color: '#B87C7C' }, geometry: { type: 'Point', coordinates: [-117.1695, 32.7245] } },
+    // Hillcrest
+    { type: 'Feature', properties: { intensity: 0.75, color: '#7FA98E' }, geometry: { type: 'Point', coordinates: [-117.1625, 32.7480] } },
+    { type: 'Feature', properties: { intensity: 0.55, color: '#C9A96E' }, geometry: { type: 'Point', coordinates: [-117.1640, 32.7490] } },
+    { type: 'Feature', properties: { intensity: 0.3, color: '#B87C7C' }, geometry: { type: 'Point', coordinates: [-117.1610, 32.7470] } },
+    // North Park
+    { type: 'Feature', properties: { intensity: 0.65, color: '#C9A96E' }, geometry: { type: 'Point', coordinates: [-117.1300, 32.7475] } },
+    { type: 'Feature', properties: { intensity: 0.8, color: '#7FA98E' }, geometry: { type: 'Point', coordinates: [-117.1285, 32.7465] } },
+    { type: 'Feature', properties: { intensity: 0.25, color: '#B87C7C' }, geometry: { type: 'Point', coordinates: [-117.1315, 32.7485] } },
+    // Pacific Beach
+    { type: 'Feature', properties: { intensity: 0.4, color: '#C9A96E' }, geometry: { type: 'Point', coordinates: [-117.2350, 32.7950] } },
+    { type: 'Feature', properties: { intensity: 0.7, color: '#7FA98E' }, geometry: { type: 'Point', coordinates: [-117.2365, 32.7940] } },
+    { type: 'Feature', properties: { intensity: 0.15, color: '#B87C7C' }, geometry: { type: 'Point', coordinates: [-117.2340, 32.7960] } },
   ],
 };
 
@@ -32,7 +49,6 @@ export default function HeatmapScreen() {
   const navigation = useNavigation();
   const { isDark } = useDarkMode();
   const [timeOffset, setTimeOffset] = useState(0);
-  const { location } = useUserLocation(false);
 
   return (
     <View style={styles.container}>
@@ -45,11 +61,8 @@ export default function HeatmapScreen() {
         compassEnabled={false}
       >
         <MapboxGL.Camera
-          centerCoordinate={[
-            location?.lng ?? -122.4025,
-            location?.lat ?? 37.7889,
-          ]}
-          zoomLevel={14}
+          centerCoordinate={[-117.1611, 32.7157]}
+          zoomLevel={13}
           animationMode="flyTo"
           animationDuration={1000}
         />

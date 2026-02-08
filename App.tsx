@@ -7,6 +7,7 @@ import Toast from 'react-native-toast-message';
 import { PhoneDataCollectorProvider } from './src/lib/PhoneDataCollectorProvider';
 import { DarkModeProvider, useDarkMode } from './src/context/DarkModeContext';
 import { NavigationProvider } from './src/context/NavigationContext';
+import { DemoProvider } from './src/context/DemoContext';
 import RootNavigator from './src/navigation/RootNavigator';
 
 function AppContent() {
@@ -29,7 +30,9 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <PhoneDataCollectorProvider>
         <DarkModeProvider>
-          <AppContent />
+          <DemoProvider>
+            <AppContent />
+          </DemoProvider>
         </DarkModeProvider>
       </PhoneDataCollectorProvider>
     </GestureHandlerRootView>
