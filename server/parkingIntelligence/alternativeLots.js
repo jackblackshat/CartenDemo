@@ -1,3 +1,4 @@
+// Alternative SF parking lots for reroute recommendations
 // Alternative San Diego parking lots for reroute recommendations
 
 export const ALTERNATIVE_LOTS = [
