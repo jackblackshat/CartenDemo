@@ -99,17 +99,15 @@ export default function SpotDetailScreen() {
               animationMode="flyTo"
               animationDuration={1000}
             />
-            <MapboxGL.PointAnnotation
-              id="spot-marker"
-              coordinate={[spotLng, spotLat]}
+            <MapboxGL.ShapeSource
+              id="spotPoint"
+              shape={{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [spotLng, spotLat] } }}
             >
-              <View style={styles.markerContainer}>
-                <View style={styles.marker}>
-                  <Ionicons name="car" size={16} color="#FFFFFF" />
-                </View>
-                <View style={styles.markerArrow} />
-              </View>
-            </MapboxGL.PointAnnotation>
+              <MapboxGL.CircleLayer
+                id="spotCircle"
+                style={{ circleRadius: 10, circleColor: '#7FA98E', circleStrokeWidth: 3, circleStrokeColor: '#FFFFFF' }}
+              />
+            </MapboxGL.ShapeSource>
           </MapboxGL.MapView>
 
           <TouchableOpacity
@@ -298,20 +296,6 @@ const styles = StyleSheet.create({
   hero: {
     height: Dimensions.get('window').height * 0.35,
     overflow: 'hidden',
-  },
-  markerContainer: { alignItems: 'center' },
-  marker: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#7FA98E', alignItems: 'center', justifyContent: 'center',
-    borderWidth: 3, borderColor: '#FFFFFF',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3, shadowRadius: 4, elevation: 5,
-  },
-  markerArrow: {
-    width: 0, height: 0,
-    borderLeftWidth: 6, borderRightWidth: 6, borderTopWidth: 8,
-    borderLeftColor: 'transparent', borderRightColor: 'transparent',
-    borderTopColor: '#FFFFFF', marginTop: -1,
   },
   backBtn: {
     position: 'absolute', top: 56, left: 16, width: 48, height: 48,

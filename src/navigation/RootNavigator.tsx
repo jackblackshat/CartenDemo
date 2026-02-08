@@ -23,11 +23,11 @@ import type { RootTabParamList, MapStackParamList, ProfileStackParamList } from 
 
 const defaultTabBarStyle = (isDark: boolean) => ({
   position: 'absolute' as const,
-  bottom: 8,
-  left: 48,
-  right: 48,
-  height: 64,
-  borderRadius: 32,
+  bottom: 12,
+  left: 80,
+  right: 80,
+  height: 60,
+  borderRadius: 30,
   borderTopWidth: 0,
   backgroundColor: 'transparent',
   shadowColor: isDark ? '#000' : '#8A8D91',
@@ -73,7 +73,7 @@ function ProfileStackNavigator() {
 function TabBarBackground() {
   const { isDark } = useDarkMode();
   return (
-    <View style={[StyleSheet.absoluteFill, { borderRadius: 32, overflow: 'hidden' }]}>
+    <View style={[StyleSheet.absoluteFill, { borderRadius: 30, overflow: 'hidden' }]}>
       <BlurView
         intensity={60}
         tint={isDark ? 'dark' : 'light'}

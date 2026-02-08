@@ -224,12 +224,15 @@ export default function NavigationScreen() {
             animationDuration={1000}
           />
           {destination && (
-            <MapboxGL.PointAnnotation
-              id="destination"
-              coordinate={[destination.lng, destination.lat]}
+            <MapboxGL.ShapeSource
+              id="destPoint"
+              shape={{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [destination.lng, destination.lat] } }}
             >
-              <View style={styles.destMarker} />
-            </MapboxGL.PointAnnotation>
+              <MapboxGL.CircleLayer
+                id="destCircle"
+                style={{ circleRadius: 8, circleColor: '#7FA98E', circleStrokeWidth: 3, circleStrokeColor: '#FFFFFF' }}
+              />
+            </MapboxGL.ShapeSource>
           )}
           {routeCoords.length > 0 && (
             <MapboxGL.ShapeSource id="routeSource" shape={routeGeoJSON}>
@@ -526,12 +529,15 @@ export default function NavigationScreen() {
         </MapboxGL.ShapeSource>
         <MapboxGL.UserLocation visible />
         {destination && (
-          <MapboxGL.PointAnnotation
-            id="destination-active"
-            coordinate={[destination.lng, destination.lat]}
+          <MapboxGL.ShapeSource
+            id="destPointActive"
+            shape={{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [destination.lng, destination.lat] } }}
           >
-            <View style={styles.destMarker} />
-          </MapboxGL.PointAnnotation>
+            <MapboxGL.CircleLayer
+              id="destCircleActive"
+              style={{ circleRadius: 8, circleColor: '#7FA98E', circleStrokeWidth: 3, circleStrokeColor: '#FFFFFF' }}
+            />
+          </MapboxGL.ShapeSource>
         )}
       </MapboxGL.MapView>
 
@@ -647,14 +653,6 @@ export default function NavigationScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  destMarker: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#7FA98E',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center', justifyContent: 'center',
