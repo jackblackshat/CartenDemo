@@ -33,11 +33,6 @@ export default {
       'ACCESS_COARSE_LOCATION',
       'ACCESS_BACKGROUND_LOCATION',
     ],
-    config: {
-      googleMaps: {
-        apiKey: process.env.GOOGLE_MAPS_API_KEY ?? '',
-      },
-    },
     package: 'com.onspot.parking',
   },
   plugins: [
@@ -55,6 +50,7 @@ export default {
       },
     ],
     ['expo-sensors'],
+    ['@rnmapbox/maps'],
   ],
   extra: {
     apiBaseUrl: process.env.API_BASE_URL,

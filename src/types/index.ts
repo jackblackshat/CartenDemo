@@ -1,14 +1,158 @@
+// Legacy types (kept for phoneData compatibility)
 export type Coords = { lng: number; lat: number };
+export type RouteGeometry = GeoJSON.LineString;
 
-export type ParkingSpot = {
+// Parking spot types
+export interface ParkingSpot {
+  id: string;
+  street: string;
+  distance: string;
+  confidence: number;
+  type: 'street' | 'garage';
+  status: 'available' | 'prediction' | 'paid' | 'unavailable';
+  timeValid: string;
+  timeLimit?: string;
+  price?: string;
+  sources: ('camera' | 'crowd' | 'prediction' | 'api')[];
+  lat: number;
+  lng: number;
+}
+
+// API response types
+export interface ParkingApiResponse {
+  blockId: string;
+  name: string;
+  probability: number;
+  distance: number;
+  totalOpenSpaces: number;
+  data: ParkingBlock;
+  segment: ParkingSegment;
+  geoSegment: string;
+  exp: number;
+}
+
+export interface ParkingBlock {
+  id: string;
+  name: string;
+  probability: number;
+  distance: number;
+  segments: ParkingSegment[];
+}
+
+export interface ParkingSegment {
+  id: string;
+  isOpen: boolean;
+  spacesTotal: number;
+  polyline6: string;
+}
+
+// Geocoding types
+export interface GeocodingResult {
+  id: string;
+  place_name: string;
+  text: string;
+  center: [number, number]; // [lng, lat]
+  relevance: number;
+  context?: GeocodingContext[];
+}
+
+export interface GeocodingContext {
+  id: string;
+  text: string;
+}
+
+export interface GeocodingResponse {
+  type: string;
+  features: GeocodingResult[];
+}
+
+// Routing types
+export interface RoutingResponse {
+  routes: Route[];
+  waypoints: Waypoint[];
+}
+
+export interface Route {
+  geometry: {
+    type: string;
+    coordinates: [number, number][];
+  };
+  duration: number;
+  distance: number;
+  legs: RouteLeg[];
+}
+
+export interface RouteLeg {
+  duration: number;
+  distance: number;
+  steps: RouteStep[];
+}
+
+export interface RouteStep {
+  maneuver: {
+    instruction: string;
+    type: string;
+  };
+  distance: number;
+  duration: number;
+}
+
+export interface Waypoint {
+  name: string;
+  location: [number, number];
+}
+
+// Crowdsource types
+export interface CrowdsourceSpot {
   id: string;
   name: string;
   lat: number;
   lng: number;
-};
+  street: string;
+  lastUpdated?: string;
+  isOpen?: boolean;
+}
 
-export type RouteGeometry = GeoJSON.LineString;
+export interface CrowdsourceResponse {
+  spotId: string;
+  isOpen: boolean;
+  timestamp: string;
+  userLocation?: {
+    lat: number;
+    lng: number;
+  };
+}
 
+// User location types
+export interface UserLocation {
+  lat: number;
+  lng: number;
+  accuracy?: number;
+  timestamp?: number;
+}
+
+// Activity types
+export interface ActivityItem {
+  id: string;
+  type: 'found' | 'shared' | 'parked' | 'left';
+  location: string;
+  time: string;
+  credits?: number;
+}
+
+// User profile types
+export interface UserProfile {
+  name: string;
+  email: string;
+  trustScore: number;
+  tier: 'Free' | 'Premium' | 'Pro';
+  creditsBalance: number;
+  spotsShared: number;
+  spotsFound: number;
+  accuracy: number;
+}
+
+// Parking Intelligence types
 export type CameraInfo = {
   id: string;
   name: string;
@@ -81,3 +225,51 @@ export type IntelligenceResponse = {
   simulatedUsers: number;
   timestamp: string;
 };
+
+// Work Scenario types
+export type WorkRecommendationType = 'highly_recommended' | 'good_option' | 'risky' | 'not_recommended';
+
+export interface LegalStatus {
+  isLegal: boolean;
+  reason: string | null;
+  description: string;
+  validUntil: string | null;
+  timeRemaining: string | null;
+}
+
+export interface PredictiveSource {
+  probability: number;
+  isOpen: boolean;
+  spacesTotal: number;
+  rate: { rate: number; currency: string; period: string };
+}
+
+export interface CameraSource {
+  available: boolean;
+  openSpots?: number;
+  totalSpots?: number;
+  confidence?: number;
+  cameraName?: string;
+  distance?: number;
+}
+
+export interface WorkRecommendation {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  distance: number;
+  recommendationType: WorkRecommendationType;
+  confidence: number;
+  sources: {
+    legal: LegalStatus;
+    predictive: PredictiveSource;
+    camera: CameraSource;
+  };
+}
+
+export interface WorkScenarioResponse {
+  recommendations: WorkRecommendation[];
+  timestamp: string;
+  userLocation: { lat: number; lng: number };
+}

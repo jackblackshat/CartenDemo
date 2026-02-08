@@ -9,7 +9,7 @@ const API_BASE_URL: string = extra.apiBaseUrl ?? DEV_BASE_URL;
 
 export const MAPBOX_TOKEN: string =
   extra.mapboxToken ??
-  'pk.eyJ1IjoiYXZhbnR1cmlzdDQ0IiwiYSI6ImNtanM2bXF0dDBscnQza3F3a21ueHl3aTIifQ.h5WqOBk8aH3Jsp7tBhedBQ';
+  'pk.eyJ1IjoiYWRpdGVzdDEiLCJhIjoiY21rZHBlaGtuMDh1bDNnc2Z5bWU1aWlxcSJ9.CL3A8ooo77Y5TMkzRsYBDA';
 
 export const API = {
   parking(point: { lat: number; lng: number }, radius: number): string {

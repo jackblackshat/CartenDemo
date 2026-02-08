@@ -1,45 +1,65 @@
-import { useEffect, useState } from 'react';
-import polyline from '@mapbox/polyline';
-import Toast from 'react-native-toast-message';
-import { API } from '../config/api';
-import type { Coords } from '../types';
+import { useState, useEffect, useCallback } from 'react';
+import { fetchParkingWithFallback } from '../services/api';
+import type { ParkingApiResponse, ParkingSpot } from '../types';
 
-export default function useParking(destination: Coords | null) {
-  const [geosegment, setGeosegment] = useState<number[][] | null>(null);
+interface UseParkingResult {
+  spots: ParkingSpot[];
+  loading: boolean;
+  error: string | null;
+  refetch: () => void;
+}
+
+function apiResponseToSpot(response: ParkingApiResponse): ParkingSpot {
+  return {
+    id: response.blockId,
+    street: response.name,
+    distance: `${(response.distance / 1609.34).toFixed(1)} mi`,
+    confidence: Math.round(response.probability * 100),
+    type: 'street',
+    status: response.probability > 0.7 ? 'available' : 'prediction',
+    timeValid: `~${Math.round(response.exp / 60)} mins`,
+    timeLimit: '2hr max',
+    sources: ['api'],
+    lat: 0,
+    lng: 0,
+  };
+}
+
+export function useParking(destination: { lat: number; lng: number } | null): UseParkingResult {
+  const [spots, setSpots] = useState<ParkingSpot[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    if (!destination) {
+      setSpots([]);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await fetchParkingWithFallback(destination);
+
+      if (result) {
+        const spot = apiResponseToSpot(result);
+        setSpots([spot]);
+      } else {
+        setSpots([]);
+        setError('No parking found nearby');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch parking');
+      setSpots([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [destination?.lat, destination?.lng]);
 
   useEffect(() => {
-    const fetchGeosegment = async () => {
-      if (!destination) return;
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/bb2dc183-ae2c-480c-a833-e5e9fcaa5246',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useParking.ts:fetchGeosegment',message:'useParking start',data:{lat:destination?.lat,lng:destination?.lng},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
-      const radii = [50, 100, 150, 200];
-      for (const radius of radii) {
-        const url = API.parking(destination, radius);
-        try {
-          const res = await fetch(url);
-          if (!res.ok) continue;
+    fetchData();
+  }, [fetchData]);
 
-          const json = await res.json();
-          // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/bb2dc183-ae2c-480c-a833-e5e9fcaa5246',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useParking.ts:afterRes',message:'parking res ok',data:{hasGeoSegment:!!json?.geoSegment,status:res.status},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-          // #endregion
-          const coordinates = polyline.decode(json.geoSegment, 6);
-          setGeosegment(coordinates ?? null);
-          return;
-        } catch (err) {
-          // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/bb2dc183-ae2c-480c-a833-e5e9fcaa5246',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useParking.ts:catch',message:'useParking error',data:{errMessage:String((err as Error)?.message)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-          // #endregion
-          console.error('Error fetching parking', err);
-        }
-      }
-
-      Toast.show({ type: 'error', text1: 'No parking data found within 200 meters.' });
-    };
-
-    fetchGeosegment();
-  }, [destination]);
-
-  return geosegment;
+  return { spots, loading, error, refetch: fetchData };
 }
