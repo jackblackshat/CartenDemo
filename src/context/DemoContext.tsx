@@ -6,6 +6,8 @@ export type DemoOverrides = {
   forceReroute: boolean;
   cameraSpotAvailable: boolean | null;  // true = available, false = unavailable, null = auto
   phoneSpotFree: boolean | null;        // true = no one in spot, false = someone, null = auto
+  workScenario: boolean;                // enables legal/regulatory stages 9-10
+  parkingDuration: number | null;       // minutes, null = default (120)
 };
 
 type DemoContextType = {
@@ -15,6 +17,8 @@ type DemoContextType = {
   setForceReroute: (value: boolean) => void;
   setCameraSpotAvailable: (value: boolean | null) => void;
   setPhoneSpotFree: (value: boolean | null) => void;
+  setWorkScenario: (value: boolean) => void;
+  setParkingDuration: (value: number | null) => void;
   reset: () => void;
   hasOverrides: boolean;
 };
@@ -25,6 +29,8 @@ const DEFAULT_OVERRIDES: DemoOverrides = {
   forceReroute: false,
   cameraSpotAvailable: null,
   phoneSpotFree: null,
+  workScenario: false,
+  parkingDuration: null,
 };
 
 const DemoContext = createContext<DemoContextType>({
@@ -34,6 +40,8 @@ const DemoContext = createContext<DemoContextType>({
   setForceReroute: () => {},
   setCameraSpotAvailable: () => {},
   setPhoneSpotFree: () => {},
+  setWorkScenario: () => {},
+  setParkingDuration: () => {},
   reset: () => {},
   hasOverrides: false,
 });
@@ -61,6 +69,14 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     setOverrides((prev) => ({ ...prev, phoneSpotFree: value }));
   }, []);
 
+  const setWorkScenario = useCallback((value: boolean) => {
+    setOverrides((prev) => ({ ...prev, workScenario: value }));
+  }, []);
+
+  const setParkingDuration = useCallback((value: number | null) => {
+    setOverrides((prev) => ({ ...prev, parkingDuration: value }));
+  }, []);
+
   const reset = useCallback(() => {
     setOverrides(DEFAULT_OVERRIDES);
   }, []);
@@ -70,7 +86,9 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     overrides.traffic !== null ||
     overrides.forceReroute ||
     overrides.cameraSpotAvailable !== null ||
-    overrides.phoneSpotFree !== null;
+    overrides.phoneSpotFree !== null ||
+    overrides.workScenario ||
+    overrides.parkingDuration !== null;
 
   return (
     <DemoContext.Provider
@@ -81,6 +99,8 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
         setForceReroute,
         setCameraSpotAvailable,
         setPhoneSpotFree,
+        setWorkScenario,
+        setParkingDuration,
         reset,
         hasOverrides,
       }}

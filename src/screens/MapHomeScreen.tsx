@@ -126,11 +126,14 @@ export default function MapHomeScreen() {
   const demoParams = useMemo(
     () => ({
       occupancy: overrides.occupancy,
+      traffic: overrides.traffic,
       forceReroute: overrides.forceReroute,
       cameraSpotAvailable: overrides.cameraSpotAvailable,
       phoneSpotFree: overrides.phoneSpotFree,
+      workScenario: overrides.workScenario,
+      parkingDuration: overrides.parkingDuration,
     }),
-    [overrides.occupancy, overrides.forceReroute, overrides.cameraSpotAvailable, overrides.phoneSpotFree],
+    [overrides.occupancy, overrides.traffic, overrides.forceReroute, overrides.cameraSpotAvailable, overrides.phoneSpotFree, overrides.workScenario, overrides.parkingDuration],
   );
   const { data: intelligence } = useSpotIntelligence(
     intelligenceCoords,

@@ -6,9 +6,12 @@ const REFRESH_INTERVAL = 15000; // 15 seconds
 
 export type DemoParams = {
   occupancy?: number | null;
+  traffic?: 'light' | 'moderate' | 'heavy' | null;
   forceReroute?: boolean;
   cameraSpotAvailable?: boolean | null;
   phoneSpotFree?: boolean | null;
+  workScenario?: boolean;
+  parkingDuration?: number | null;
 };
 
 export default function useSpotIntelligence(
@@ -59,7 +62,7 @@ export default function useSpotIntelligence(
     } finally {
       setLoading(false);
     }
-  }, [destination, demo?.occupancy, demo?.forceReroute, demo?.cameraSpotAvailable, demo?.phoneSpotFree, clearTimer]);
+  }, [destination, demo?.occupancy, demo?.traffic, demo?.forceReroute, demo?.cameraSpotAvailable, demo?.phoneSpotFree, demo?.workScenario, demo?.parkingDuration, clearTimer]);
 
   // Fetch on mount/change + auto-refresh every 15s
   useEffect(() => {

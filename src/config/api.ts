@@ -40,18 +40,24 @@ export const API = {
     lng: number,
     demo?: {
       occupancy?: number | null;
+      traffic?: 'light' | 'moderate' | 'heavy' | null;
       forceReroute?: boolean;
       cameraSpotAvailable?: boolean | null;
       phoneSpotFree?: boolean | null;
+      workScenario?: boolean;
+      parkingDuration?: number | null;
     },
   ): string {
     let url = `${API_BASE_URL}/spot-intelligence?lat=${lat}&lng=${lng}`;
     if (demo?.occupancy != null) url += `&demoOccupancy=${demo.occupancy}`;
+    if (demo?.traffic) url += `&demoTraffic=${demo.traffic}`;
     if (demo?.forceReroute) url += `&demoForceReroute=true`;
     if (demo?.cameraSpotAvailable === true) url += `&demoCameraSpotAvailable=true`;
     if (demo?.cameraSpotAvailable === false) url += `&demoCameraSpotAvailable=false`;
     if (demo?.phoneSpotFree === true) url += `&demoPhoneSpotFree=true`;
     if (demo?.phoneSpotFree === false) url += `&demoPhoneSpotFree=false`;
+    if (demo?.workScenario) url += `&workScenario=true`;
+    if (demo?.parkingDuration != null) url += `&parkingDuration=${demo.parkingDuration}`;
     return url;
   },
 

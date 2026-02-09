@@ -37,6 +37,9 @@ yarn-error.*
 # server dependencies
 server/node_modules/
 
+# server logs
+server/logs/
+
 # typescript
 *.tsbuildinfo
 

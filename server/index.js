@@ -18,9 +18,11 @@ import { SF_PARKING_SPOTS } from './phoneData/crowdsourceSpots.js';
 import { calculateDistance } from './phoneData/utils.js';
 // parking intelligence
 import { findNearestCamera, projectSpotsToGeo, applyDemoVariation, applyOccupancyOverride, YOLO_RESULTS } from './parkingIntelligence/cameraData.js';
-import { rankSpots, makeRerouteDecision } from './parkingIntelligence/intelligenceEngine.js';
+import { rankSpots, makeRerouteDecision, REROUTE_THRESHOLD } from './parkingIntelligence/intelligenceEngine.js';
 import { getSimulatedUsers } from './parkingIntelligence/simulatedUsers.js';
 import { ALTERNATIVE_LOTS } from './parkingIntelligence/alternativeLots.js';
+import { logPipeline, logWorkScenario } from './parkingIntelligence/pipelineLogger.js';
+import { evaluateLegalStatus, classifyRecommendation, PARKING_REGULATIONS } from './parkingIntelligence/legalData.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -314,8 +316,13 @@ app.get("/spot-detection", (req, res) => {
 });
 
 app.get("/spot-intelligence", (req, res) => {
+  const startTime = Date.now();
   res.setHeader("Access-Control-Allow-Origin", "*");
-  const { lat, lng, demoOccupancy, demoForceReroute, demoCameraSpotAvailable, demoPhoneSpotFree } = req.query;
+  const {
+    lat, lng,
+    demoOccupancy, demoForceReroute, demoCameraSpotAvailable, demoPhoneSpotFree, demoTraffic,
+    workScenario, parkingDuration: pdParam,
+  } = req.query;
 
   if (!lat || !lng) {
     res.status(400).send({ error: 'lat and lng parameters required' });
@@ -325,6 +332,8 @@ app.get("/spot-intelligence", (req, res) => {
   const userLat = parseFloat(lat);
   const userLng = parseFloat(lng);
   const userLocation = { lat: userLat, lng: userLng };
+  const isWorkScenario = workScenario === 'true';
+  const parkingDuration = pdParam ? parseInt(pdParam) : 120;
 
   // Find nearest camera
   const { camera, distance: cameraDistance } = findNearestCamera(userLat, userLng, calculateDistance);
@@ -334,7 +343,7 @@ app.get("/spot-intelligence", (req, res) => {
     return;
   }
 
-  // Project + vary spots
+  // Project spots (save pre-variation copy for logging)
   const geoSpots = projectSpotsToGeo(camera, YOLO_RESULTS, polygonData);
   let variedSpots = applyDemoVariation(geoSpots);
 
@@ -347,7 +356,7 @@ app.get("/spot-intelligence", (req, res) => {
   }
 
   // Get simulated users (empty when demo "phone/crowd: no one in spot")
-  const simulatedUsers = demoPhoneSpotFree === 'true' ? [] : getSimulatedUsers();
+  const simulatedUsers = demoPhoneSpotFree === 'true' ? [] : getSimulatedUsers(demoTraffic || null);
 
   // Rank spots
   let { recommendations, lotSummary } = rankSpots(userLocation, variedSpots, simulatedUsers);
@@ -391,7 +400,18 @@ app.get("/spot-intelligence", (req, res) => {
     };
   }
 
-  res.json({
+  // Compute crowdsource spots
+  const timestamp = new Date().toISOString();
+  const allCrowdsourceWithDist = SF_PARKING_SPOTS.map(spot => ({
+    ...spot,
+    distance: Math.round(calculateDistance(userLocation, spot)),
+  })).sort((a, b) => a.distance - b.distance);
+  const crowdsourceNearby = allCrowdsourceWithDist.filter(s => s.distance <= 500);
+
+  const demoOverrides = { demoOccupancy, demoTraffic, demoForceReroute, demoCameraSpotAvailable, demoPhoneSpotFree };
+
+  // Build response
+  const response = {
     camera: {
       id: camera.id,
       name: camera.name,
@@ -405,8 +425,135 @@ app.get("/spot-intelligence", (req, res) => {
     allSpots: variedSpots,
     rerouteDecision,
     simulatedUsers: simulatedUsers.length,
-    timestamp: new Date().toISOString(),
-  });
+    timestamp,
+  };
+
+  // When workScenario is enabled, add legal evaluation stages
+  if (isWorkScenario) {
+    const legalEvaluations = [];
+
+    // Camera lot legal status
+    const cameraLegal = evaluateLegalStatus(camera.id, parkingDuration);
+    const cameraReg = PARKING_REGULATIONS[camera.id];
+    const estimatedCost = cameraLegal.rate ? (cameraLegal.rate * parkingDuration / 60) : null;
+    legalEvaluations.push({
+      locationId: camera.id,
+      zoneName: cameraReg ? cameraReg.zoneName : camera.lotName,
+      distance: null,
+      ...cameraLegal,
+      timeLimit: cameraReg?.restrictions?.timeLimit || null,
+      enforcementStatus: null,
+      estimatedCost,
+      specialRules: cameraReg?.specialRules || null,
+    });
+
+    // Nearby crowdsource legal statuses
+    for (const cs of crowdsourceNearby) {
+      const csLegal = evaluateLegalStatus(cs.id, parkingDuration);
+      const csReg = PARKING_REGULATIONS[cs.id];
+      const csEnforcement = csReg?.restrictions?.enforcedHours
+        ? (() => {
+            const now = new Date();
+            const h = now.getHours() + now.getMinutes() / 60;
+            const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][now.getDay()];
+            const dayActive = csReg.restrictions.enforcedDays?.includes(day);
+            const hourActive = h >= csReg.restrictions.enforcedHours.start && h < csReg.restrictions.enforcedHours.end;
+            return dayActive && hourActive ? `Active (${csReg.restrictions.enforcedDays.join(', ')} ${String(csReg.restrictions.enforcedHours.start).padStart(2, '0')}:00-${String(csReg.restrictions.enforcedHours.end).padStart(2, '0')}:00)` : 'Inactive';
+          })()
+        : null;
+      const csCost = csLegal.rate ? (csLegal.rate * Math.min(parkingDuration, csReg?.restrictions?.timeLimit || parkingDuration) / 60) : null;
+
+      legalEvaluations.push({
+        locationId: cs.id,
+        zoneName: csReg ? csReg.zoneName : cs.name,
+        distance: cs.distance,
+        ...csLegal,
+        timeLimit: csReg?.restrictions?.timeLimit || null,
+        enforcementStatus: csEnforcement,
+        estimatedCost: csCost,
+        specialRules: csReg?.specialRules || null,
+      });
+    }
+
+    // Work recommendation classification
+    const workRecommendations = [];
+
+    // Classify top camera lot spots
+    const topSpots = recommendations.slice(0, 5);
+    for (const spot of topSpots) {
+      const spotLegal = evaluateLegalStatus(camera.id, parkingDuration);
+      const classification = classifyRecommendation(spotLegal, spot.overallConfidence);
+      workRecommendations.push({
+        spotId: spot.id,
+        type: 'camera_lot',
+        ...classification,
+      });
+    }
+
+    // Classify nearby crowdsource street spots
+    for (const cs of crowdsourceNearby) {
+      const csLegal = evaluateLegalStatus(cs.id, parkingDuration);
+      const classification = classifyRecommendation(csLegal, 0.5);
+      workRecommendations.push({
+        spotId: cs.id,
+        type: 'street',
+        ...classification,
+      });
+    }
+
+    response.workRecommendations = workRecommendations;
+    response.legalContext = legalEvaluations;
+    response.parkingDuration = parkingDuration;
+
+    // Log full work scenario
+    try {
+      logWorkScenario({
+        timestamp,
+        userLocation,
+        camera,
+        cameraDistance: Math.round(cameraDistance),
+        geoSpots,
+        variedSpots,
+        simulatedUsers,
+        crowdsourceSpots: crowdsourceNearby,
+        allCrowdsourceSpots: allCrowdsourceWithDist,
+        recommendations,
+        lotSummary,
+        rerouteDecision,
+        startTime,
+        parkingDuration,
+        legalEvaluations,
+        workRecommendations,
+        demoOverrides,
+      });
+    } catch (e) {
+      console.error('Work scenario logging error:', e.message);
+    }
+  } else {
+    // Log standard pipeline
+    try {
+      logPipeline({
+        timestamp,
+        userLocation,
+        camera,
+        cameraDistance: Math.round(cameraDistance),
+        geoSpots,
+        variedSpots,
+        simulatedUsers,
+        crowdsourceSpots: crowdsourceNearby,
+        allCrowdsourceSpots: allCrowdsourceWithDist,
+        recommendations,
+        lotSummary,
+        rerouteDecision,
+        startTime,
+        demoOverrides,
+      });
+    } catch (e) {
+      console.error('Pipeline logging error:', e.message);
+    }
+  }
+
+  res.json(response);
 });
 
 app.get("/reroute-check", (req, res) => {

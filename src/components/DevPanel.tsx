@@ -22,7 +22,7 @@ const TRAFFIC_OPTIONS = ['light', 'moderate', 'heavy'] as const;
 
 export default function DevPanel({ visible, onClose, onApply }: DevPanelProps) {
   const { isDark } = useDarkMode();
-  const { overrides, setOccupancy, setTraffic, setForceReroute, setCameraSpotAvailable, setPhoneSpotFree, reset } = useDemo();
+  const { overrides, setOccupancy, setTraffic, setForceReroute, setCameraSpotAvailable, setPhoneSpotFree, setWorkScenario, setParkingDuration, reset } = useDemo();
 
   // Local buffered state — only committed on Apply
   const [local, setLocal] = useState<DemoOverrides>({ ...overrides });
@@ -195,6 +195,8 @@ export default function DevPanel({ visible, onClose, onApply }: DevPanelProps) {
               setForceReroute(local.forceReroute);
               setCameraSpotAvailable(local.cameraSpotAvailable);
               setPhoneSpotFree(local.phoneSpotFree);
+              setWorkScenario(local.workScenario);
+              setParkingDuration(local.parkingDuration);
               onClose();
               onApply?.(local);
             }}
@@ -214,6 +216,8 @@ export default function DevPanel({ visible, onClose, onApply }: DevPanelProps) {
                 forceReroute: false,
                 cameraSpotAvailable: null,
                 phoneSpotFree: null,
+                workScenario: false,
+                parkingDuration: null,
               });
               onClose();
             }}

@@ -7,6 +7,7 @@ const WALKING_SPEED_MPS = 1.4; // average walking speed in meters/second
 const MAX_USEFUL_DISTANCE = 200; // meters — spots beyond this get 0 distance score
 const QUEUE_PENALTY_PER_CAR = 0.25; // -25% per car ahead
 const DECAY_RATE = 0.15; // exponential decay rate per minute for future prediction
+const REROUTE_THRESHOLD = 0.35; // minimum confidence before suggesting reroute
 
 // Hardcoded confidence for Row C spots (demo / predictable values)
 const ROW_C_HARDCODED_CONFIDENCE = {
@@ -111,7 +112,7 @@ export function makeRerouteDecision(recommendations, userLocation) {
     ? recommendations[0].overallConfidence
     : 0;
 
-  if (bestConfidence >= 0.35) {
+  if (bestConfidence >= REROUTE_THRESHOLD) {
     return {
       shouldReroute: false,
       reason: null,
@@ -164,3 +165,5 @@ export function makeRerouteDecision(recommendations, userLocation) {
     },
   };
 }
+
+export { MAX_USEFUL_DISTANCE, QUEUE_PENALTY_PER_CAR, DECAY_RATE, REROUTE_THRESHOLD, ROW_C_HARDCODED_CONFIDENCE };
