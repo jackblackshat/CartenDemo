@@ -207,6 +207,8 @@ app.get("/routing", (req, res) => {
     {
       params: {
         geometries: 'geojson',
+        steps: true,
+        overview: 'full',
         access_token: config.mapboxDirectionsApiToken
       },
       headers: {

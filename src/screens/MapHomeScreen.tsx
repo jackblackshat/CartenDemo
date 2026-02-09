@@ -36,6 +36,7 @@ import type { MapStackParamList } from '../navigation/types';
 type NavProp = NativeStackNavigationProp<MapStackParamList>;
 
 const fallbackSpots: ParkingSpot[] = [
+  // Free street parking
   {
     id: '1',
     street: '5th Ave (Gaslamp)',
@@ -48,6 +49,7 @@ const fallbackSpots: ParkingSpot[] = [
     sources: ['camera', 'crowd'],
     lat: 32.7120,
     lng: -117.1598,
+    turnoverMinutes: 20,
   },
   {
     id: '2',
@@ -55,13 +57,103 @@ const fallbackSpots: ParkingSpot[] = [
     distance: '0.4 mi',
     confidence: 87,
     type: 'street',
-    status: 'prediction',
+    status: 'available',
     timeValid: '~8 mins',
     timeLimit: '3hr max',
     sources: ['prediction', 'api'],
     lat: 32.7100,
     lng: -117.1580,
+    turnoverMinutes: 35,
   },
+  {
+    id: '4',
+    street: 'J Street',
+    distance: '0.3 mi',
+    confidence: 82,
+    type: 'street',
+    status: 'available',
+    timeValid: '~6 mins',
+    timeLimit: '2hr max',
+    sources: ['camera'],
+    lat: 32.7108,
+    lng: -117.1572,
+    turnoverMinutes: 25,
+  },
+  {
+    id: '5',
+    street: 'Market St (East Village)',
+    distance: '0.5 mi',
+    confidence: 78,
+    type: 'street',
+    status: 'available',
+    timeValid: '~10 mins',
+    timeLimit: '1hr max',
+    sources: ['prediction'],
+    lat: 32.7145,
+    lng: -117.1555,
+    turnoverMinutes: 45,
+  },
+  {
+    id: '6',
+    street: 'K Street',
+    distance: '0.3 mi',
+    confidence: 91,
+    type: 'street',
+    status: 'available',
+    timeValid: '~4 mins',
+    timeLimit: '2hr max',
+    sources: ['camera', 'crowd'],
+    lat: 32.7095,
+    lng: -117.1605,
+    turnoverMinutes: 18,
+  },
+  // Paid street parking (metered)
+  {
+    id: '7',
+    street: '6th Ave (Metered)',
+    distance: '0.2 mi',
+    confidence: 96,
+    type: 'street',
+    status: 'paid',
+    timeValid: '~3 mins',
+    timeLimit: '2hr max',
+    price: '$1.50/hr',
+    sources: ['camera', 'api'],
+    lat: 32.7125,
+    lng: -117.1590,
+    turnoverMinutes: 30,
+  },
+  {
+    id: '8',
+    street: 'Broadway (Metered)',
+    distance: '0.4 mi',
+    confidence: 89,
+    type: 'street',
+    status: 'paid',
+    timeValid: '~5 mins',
+    timeLimit: '3hr max',
+    price: '$1.25/hr',
+    sources: ['api'],
+    lat: 32.7155,
+    lng: -117.1608,
+    turnoverMinutes: 40,
+  },
+  {
+    id: '9',
+    street: 'G Street (Metered)',
+    distance: '0.6 mi',
+    confidence: 84,
+    type: 'street',
+    status: 'paid',
+    timeValid: '~7 mins',
+    timeLimit: '2hr max',
+    price: '$1.50/hr',
+    sources: ['prediction', 'api'],
+    lat: 32.7160,
+    lng: -117.1575,
+    turnoverMinutes: 50,
+  },
+  // Garages
   {
     id: '3',
     street: 'Horton Plaza Garage',
@@ -74,6 +166,77 @@ const fallbackSpots: ParkingSpot[] = [
     sources: ['api'],
     lat: 32.7138,
     lng: -117.1614,
+    turnoverMinutes: 90,
+  },
+  {
+    id: '10',
+    street: 'Padres Parkade',
+    distance: '0.8 mi',
+    confidence: 97,
+    type: 'garage',
+    status: 'paid',
+    timeValid: 'Real-time',
+    price: '$5/hr',
+    sources: ['api'],
+    lat: 32.7080,
+    lng: -117.1560,
+    turnoverMinutes: 120,
+  },
+  {
+    id: '11',
+    street: '6th & K Garage',
+    distance: '0.5 mi',
+    confidence: 95,
+    type: 'garage',
+    status: 'paid',
+    timeValid: 'Real-time',
+    price: '$3/hr',
+    sources: ['api'],
+    lat: 32.7098,
+    lng: -117.1592,
+    turnoverMinutes: 60,
+  },
+  {
+    id: '12',
+    street: 'Seaport Village Parking',
+    distance: '1.0 mi',
+    confidence: 92,
+    type: 'garage',
+    status: 'paid',
+    timeValid: 'Real-time',
+    price: '$6/hr',
+    sources: ['api'],
+    lat: 32.7070,
+    lng: -117.1695,
+    turnoverMinutes: 75,
+  },
+  // Prediction / unavailable spots
+  {
+    id: '13',
+    street: 'India Street (Little Italy)',
+    distance: '0.9 mi',
+    confidence: 72,
+    type: 'street',
+    status: 'prediction',
+    timeValid: '~12 mins',
+    timeLimit: '2hr max',
+    sources: ['prediction'],
+    lat: 32.7225,
+    lng: -117.1685,
+    turnoverMinutes: 35,
+  },
+  {
+    id: '14',
+    street: 'Ash Street',
+    distance: '0.7 mi',
+    confidence: 68,
+    type: 'street',
+    status: 'prediction',
+    timeValid: '~15 mins',
+    sources: ['prediction'],
+    lat: 32.7200,
+    lng: -117.1640,
+    turnoverMinutes: 55,
   },
 ];
 
@@ -90,7 +253,7 @@ export default function MapHomeScreen() {
   const phoneData = usePhoneDataCollector();
   const { overrides, hasOverrides } = useDemo();
 
-  const [filters, setFilters] = useState<string[]>(['Free', 'Paid', 'Garage', 'Street']);
+  const [filters, setFilters] = useState<string[]>([]);
   const [showLeavingModal, setShowLeavingModal] = useState(false);
   const [showParkedModal, setShowParkedModal] = useState(false);
   const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
@@ -267,10 +430,11 @@ export default function MapHomeScreen() {
   };
 
   const filteredSpots = spots.filter((spot) => {
-    if (filters.includes('Free') && spot.status === 'available' && !spot.price)
-      return true;
-    if (filters.includes('Paid') && (spot.status === 'paid' || spot.price))
-      return true;
+    // No filters active = show all spots
+    if (filters.length === 0) return true;
+
+    if (filters.includes('Free') && !spot.price && spot.type === 'street') return true;
+    if (filters.includes('Paid') && spot.price) return true;
     if (filters.includes('Garage') && spot.type === 'garage') return true;
     if (filters.includes('Street') && spot.type === 'street') return true;
     return false;
@@ -671,7 +835,7 @@ export default function MapHomeScreen() {
                   No spots match your filters
                 </Text>
                 <TouchableOpacity
-                  onPress={() => setFilters(['Free', 'Paid', 'Garage', 'Street'])}
+                  onPress={() => setFilters([])}
                 >
                   <Text style={styles.clearFilters}>Clear filters</Text>
                 </TouchableOpacity>

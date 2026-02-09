@@ -55,7 +55,7 @@ export async function fetchRouting(
     return await fetchWithError<RoutingResponse>(url);
   } catch {
     // Fallback: call Mapbox Directions API directly
-    const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?geometries=geojson&overview=full&access_token=${MAPBOX_TOKEN}`;
+    const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?geometries=geojson&overview=full&steps=true&access_token=${MAPBOX_TOKEN}`;
     return fetchWithError<RoutingResponse>(url);
   }
 }

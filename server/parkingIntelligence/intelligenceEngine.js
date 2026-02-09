@@ -9,6 +9,40 @@ const QUEUE_PENALTY_PER_CAR = 0.25; // -25% per car ahead
 const DECAY_RATE = 0.15; // exponential decay rate per minute for future prediction
 const REROUTE_THRESHOLD = 0.35; // minimum confidence before suggesting reroute
 
+// Hardcoded SD street-level turnover data (minutes avg parked)
+const TURNOVER_DATA = {
+  gaslamp: { daytime: 45, evening: 20, night: 15 },      // restaurants/nightlife — fast evening turnover
+  eastVillage: { daytime: 180, evening: 30, night: 20 },  // offices — long stays during work hours
+  littleItaly: { daytime: 35, evening: 40, night: 25 },   // mixed use
+  hillcrest: { daytime: 50, evening: 35, night: 20 },
+  northPark: { daytime: 40, evening: 30, night: 15 },
+  pacificBeach: { daytime: 60, evening: 45, night: 25 },
+};
+
+/**
+ * Computes estimated turnover time (minutes) for a spot based on hour and area.
+ * Returns { turnoverMinutes, turnoverLabel }.
+ */
+export function computeTurnover(hour = new Date().getHours(), area = 'gaslamp') {
+  const areaData = TURNOVER_DATA[area] || TURNOVER_DATA.gaslamp;
+
+  let minutes;
+  if (hour >= 6 && hour < 17) {
+    minutes = areaData.daytime;
+  } else if (hour >= 17 && hour < 22) {
+    minutes = areaData.evening;
+  } else {
+    minutes = areaData.night;
+  }
+
+  let label;
+  if (minutes < 25) label = 'Fast';
+  else if (minutes <= 60) label = 'Medium';
+  else label = 'Slow';
+
+  return { turnoverMinutes: minutes, turnoverLabel: label };
+}
+
 // Hardcoded confidence for Row C spots (demo / predictable values)
 const ROW_C_HARDCODED_CONFIDENCE = {
   C1: 0.92, C2: 0.88, C3: 0.85, C4: 0.82, C5: 0.78, C6: 0.75,
@@ -67,6 +101,9 @@ export function rankSpots(userLocation, detectedSpots, simulatedUsers) {
       '10min': overallConfidence * Math.exp(-DECAY_RATE * 10),
     };
 
+    // Turnover estimate for this spot's area
+    const turnover = computeTurnover();
+
     return {
       id: spot.id,
       row: spot.row,
@@ -86,11 +123,18 @@ export function rankSpots(userLocation, detectedSpots, simulatedUsers) {
         '5min': Math.round(futureConfidence['5min'] * 100) / 100,
         '10min': Math.round(futureConfidence['10min'] * 100) / 100,
       },
+      turnoverMinutes: turnover.turnoverMinutes,
+      turnoverLabel: turnover.turnoverLabel,
     };
   });
 
   // Sort by overall confidence descending
   recommendations.sort((a, b) => b.overallConfidence - a.overallConfidence);
+
+  // Compute average turnover across recommendations
+  const avgTurnover = recommendations.length > 0
+    ? Math.round(recommendations.reduce((sum, r) => sum + r.turnoverMinutes, 0) / recommendations.length)
+    : computeTurnover().turnoverMinutes;
 
   return {
     recommendations,
@@ -99,6 +143,7 @@ export function rankSpots(userLocation, detectedSpots, simulatedUsers) {
       openSpots: emptySpots.length,
       occupiedSpots: occupiedCount,
       occupancyRate: Math.round((occupiedCount / detectedSpots.length) * 100),
+      avgTurnoverMinutes: avgTurnover,
     },
   };
 }

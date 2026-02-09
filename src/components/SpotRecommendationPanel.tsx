@@ -102,6 +102,20 @@ export default function SpotRecommendationPanel({
                     ? 'No cars ahead'
                     : `${spot.queuePosition} car${spot.queuePosition > 1 ? 's' : ''} closer`}
                 </Text>
+                {spot.turnoverMinutes != null && (
+                  <View style={styles.turnoverRow}>
+                    <Ionicons
+                      name="refresh-outline"
+                      size={10}
+                      color={spot.turnoverMinutes < 25 ? '#7FA98E' : spot.turnoverMinutes <= 60 ? '#C9A96E' : '#B87C7C'}
+                    />
+                    <Text style={[styles.turnoverLabel, {
+                      color: spot.turnoverMinutes < 25 ? '#7FA98E' : spot.turnoverMinutes <= 60 ? '#C9A96E' : '#B87C7C',
+                    }]}>
+                      ~{spot.turnoverMinutes}m turnover
+                    </Text>
+                  </View>
+                )}
               </View>
               <TouchableOpacity
                 onPress={() => navigation.navigate('Navigation', {
@@ -149,6 +163,8 @@ const styles = StyleSheet.create({
   spotFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   futureText: { fontSize: 11, color: '#C9A96E' },
   queueText: { fontSize: 11 },
+  turnoverRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  turnoverLabel: { fontSize: 10, fontWeight: '500' },
   lotNavBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: '#7FA98E', borderRadius: 999,

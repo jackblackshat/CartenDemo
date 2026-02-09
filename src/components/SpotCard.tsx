@@ -109,9 +109,25 @@ export default function SpotCard({ spot }: SpotCardProps) {
 
       {/* Footer */}
       <View style={styles.footer}>
-        <Text style={[styles.timeLimit, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>
-          {spot.timeLimit || 'No limit'}
-        </Text>
+        <View style={styles.footerLeft}>
+          <Text style={[styles.timeLimit, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>
+            {spot.timeLimit || 'No limit'}
+          </Text>
+          {spot.turnoverMinutes != null && (
+            <View style={styles.turnoverBadge}>
+              <Ionicons
+                name="refresh-outline"
+                size={11}
+                color={spot.turnoverMinutes < 25 ? '#7FA98E' : spot.turnoverMinutes <= 60 ? '#C9A96E' : '#B87C7C'}
+              />
+              <Text style={[styles.turnoverText, {
+                color: spot.turnoverMinutes < 25 ? '#7FA98E' : spot.turnoverMinutes <= 60 ? '#C9A96E' : '#B87C7C',
+              }]}>
+                ~{spot.turnoverMinutes}m turnover
+              </Text>
+            </View>
+          )}
+        </View>
         <TouchableOpacity
           onPress={() => navigation.navigate('Navigation', {
             destination: { name: spot.street, lat: spot.lat, lng: spot.lng },
@@ -217,8 +233,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  footerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
   timeLimit: {
     fontSize: 12,
+  },
+  turnoverBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  turnoverText: {
+    fontSize: 11,
+    fontWeight: '500',
   },
   navigateButton: {
     flexDirection: 'row',

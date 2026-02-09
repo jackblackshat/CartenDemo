@@ -41,6 +41,12 @@ const spotData = {
     warnings: [{ text: 'Street sweeping tomorrow 8-10 AM', urgent: true }],
     cost: null as string | null,
   },
+  turnover: {
+    avgDuration: 25,
+    rate: 'Fast' as const,
+    estWait: 4,
+    context: 'Cars here stay ~25 min on average. Spots free up frequently during evenings.',
+  },
   historicalData: [
     { hour: '6AM', availability: 85 }, { hour: '7AM', availability: 72 },
     { hour: '8AM', availability: 45 }, { hour: '9AM', availability: 25 },
@@ -173,6 +179,43 @@ export default function SpotDetailScreen() {
             <View style={[styles.ruleRow, { backgroundColor: 'rgba(127, 169, 142, 0.1)', borderColor: '#7FA98E' }]}>
               <Ionicons name="cash-outline" size={20} color="#7FA98E" />
               <Text style={[styles.ruleTitle, { color: '#7FA98E' }]}>Free Parking</Text>
+            </View>
+          </View>
+
+          {/* Turnover */}
+          <View style={[styles.section, { backgroundColor: isDark ? '#2C2C2E' : '#FFFFFF', borderColor: isDark ? '#3A3A3C' : '#D3D5D7' }]}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="refresh-outline" size={20} color="#7FA98E" />
+              <Text style={[styles.sectionTitle, { color: isDark ? '#F5F5F7' : '#4A4F55' }]}>Spot Turnover</Text>
+            </View>
+
+            <View style={styles.turnoverStats}>
+              {[
+                { label: 'Avg Duration', value: `${spotData.turnover.avgDuration} min`, icon: 'time-outline' as const },
+                { label: 'Turnover Rate', value: spotData.turnover.rate, icon: 'speedometer-outline' as const },
+                { label: 'Est. Wait', value: `~${spotData.turnover.estWait} min`, icon: 'hourglass-outline' as const },
+              ].map((stat, i) => {
+                const turnoverColor = spotData.turnover.rate === 'Fast' ? '#7FA98E' : spotData.turnover.rate === 'Medium' ? '#C9A96E' : '#B87C7C';
+                return (
+                  <View key={i} style={[styles.turnoverStat, {
+                    backgroundColor: isDark ? '#3A3A3C' : '#F5F1E8',
+                    borderColor: isDark ? '#48484A' : '#D3D5D7',
+                  }]}>
+                    <Ionicons name={stat.icon} size={18} color={turnoverColor} />
+                    <Text style={[styles.turnoverStatValue, { color: isDark ? '#F5F5F7' : '#4A4F55' }]}>{stat.value}</Text>
+                    <Text style={[styles.turnoverStatLabel, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>{stat.label}</Text>
+                  </View>
+                );
+              })}
+            </View>
+
+            <View style={[styles.turnoverContext, {
+              backgroundColor: `${spotData.turnover.rate === 'Fast' ? '#7FA98E' : spotData.turnover.rate === 'Medium' ? '#C9A96E' : '#B87C7C'}10`,
+              borderColor: `${spotData.turnover.rate === 'Fast' ? '#7FA98E' : spotData.turnover.rate === 'Medium' ? '#C9A96E' : '#B87C7C'}30`,
+            }]}>
+              <Text style={[styles.turnoverContextText, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>
+                {spotData.turnover.context}
+              </Text>
             </View>
           </View>
 
@@ -345,6 +388,16 @@ const styles = StyleSheet.create({
   ruleTitle: { fontSize: 14, fontWeight: '500' },
   ruleSub: { fontSize: 12, marginTop: 2 },
   expandLink: { fontSize: 13, fontWeight: '600', color: '#7FA98E' },
+  turnoverStats: { flexDirection: 'row', gap: 8 },
+  turnoverStat: {
+    flex: 1, borderRadius: 12, borderWidth: 1, padding: 12, alignItems: 'center', gap: 4,
+  },
+  turnoverStatValue: { fontSize: 16, fontWeight: '700' },
+  turnoverStatLabel: { fontSize: 11 },
+  turnoverContext: {
+    marginTop: 12, padding: 12, borderRadius: 12, borderWidth: 1,
+  },
+  turnoverContextText: { fontSize: 13, lineHeight: 18 },
   chartNote: { fontSize: 12, marginTop: 8 },
   nearbyTitle: { fontSize: 18, fontWeight: '600' },
   similarScroll: { marginBottom: 16 },

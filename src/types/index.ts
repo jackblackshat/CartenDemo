@@ -16,6 +16,7 @@ export interface ParkingSpot {
   sources: ('camera' | 'crowd' | 'prediction' | 'api')[];
   lat: number;
   lng: number;
+  turnoverMinutes?: number;
 }
 
 // API response types
@@ -92,6 +93,7 @@ export interface RouteStep {
   maneuver: {
     instruction: string;
     type: string;
+    modifier?: string;
   };
   distance: number;
   duration: number;
@@ -191,6 +193,8 @@ export type SpotRecommendation = {
     '5min': number;
     '10min': number;
   };
+  turnoverMinutes: number;
+  turnoverLabel: 'Fast' | 'Medium' | 'Slow';
 };
 
 export type RerouteDecision = {
@@ -214,6 +218,7 @@ export type LotSummary = {
   openSpots: number;
   occupiedSpots: number;
   occupancyRate: number;
+  avgTurnoverMinutes?: number;
 };
 
 export type IntelligenceResponse = {

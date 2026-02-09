@@ -39,11 +39,39 @@ const nearbySpots = [
   { id: '3', name: 'East Village Garage', distance: '0.6 mi', confidence: 99, price: '$4/hr', eta: '5 min drive' },
 ];
 
+const workLocation = {
+  name: 'SDSU',
+  address: '5500 Campanile Dr',
+  distance: '8.2 mi',
+  lat: 32.7757,
+  lng: -117.0719,
+};
+
+const events = [
+  { id: 'ev1', name: 'Padres vs Dodgers', venue: 'Petco Park', time: 'Tonight, 7:10 PM', difficulty: 'High' as const, lat: 32.7073, lng: -117.1566, parkingFull: true },
+  { id: 'ev2', name: 'Gaslamp Night Market', venue: '5th Ave, Gaslamp', time: 'Saturday, 6:00 PM', difficulty: 'Medium' as const, lat: 32.7112, lng: -117.1601, parkingFull: false },
+  { id: 'ev3', name: 'SD Symphony', venue: 'Copley Symphony Hall', time: 'Friday, 8:00 PM', difficulty: 'Medium' as const, lat: 32.7199, lng: -117.1571, parkingFull: false },
+];
+
+// Alternatives shown when event parking is full
+const eventAlternatives = [
+  { id: 'alt1', name: 'Horton Plaza Garage', distance: '0.3 mi', walk: '6 min walk', confidence: 78, price: '$3/hr', lat: 32.7138, lng: -117.1614, icon: 'car' as const },
+  { id: 'alt2', name: '6th Ave & Island Lot', distance: '0.4 mi', walk: '8 min walk', confidence: 85, price: '$5/hr', lat: 32.7095, lng: -117.1618, icon: 'car' as const },
+  { id: 'alt3', name: 'Seaport Village Parking', distance: '0.5 mi', walk: '10 min walk', confidence: 72, price: '$4/hr', lat: 32.7070, lng: -117.1685, icon: 'car' as const },
+];
+
+const eventTransit = [
+  { id: 'tr1', name: 'MTS Green Line', detail: 'Gaslamp Quarter Station · 4 min walk', frequency: 'Every 15 min', color: '#4CAF50', icon: 'train-outline' as const, lat: 32.7118, lng: -117.1590 },
+  { id: 'tr2', name: 'MTS Blue Line', detail: '12th & Imperial · 12 min walk', frequency: 'Every 12 min', color: '#2196F3', icon: 'train-outline' as const, lat: 32.7060, lng: -117.1520 },
+  { id: 'tr3', name: 'Bus Route 3', detail: 'Park Blvd & Market St · 3 min walk', frequency: 'Every 20 min', color: '#FF9800', icon: 'bus-outline' as const, lat: 32.7080, lng: -117.1560 },
+];
+
 export default function SearchResultsScreen() {
   const navigation = useNavigation<NavProp>();
   const { isDark } = useDarkMode();
   const { setSelectedDestination } = useNavigationContext();
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const { results: geocodeResults, loading: geocodeLoading, search: geocodeSearch, clear: clearGeocode } = useGeocoding();
   const { location: userLocation } = useUserLocation();
 
@@ -152,6 +180,37 @@ export default function SearchResultsScreen() {
           </>
         ) : (
           <>
+            {/* Work */}
+            <TouchableOpacity
+              onPress={() => {
+                setSelectedDestination({
+                  name: `${workLocation.name} — ${workLocation.address}`,
+                  lat: workLocation.lat,
+                  lng: workLocation.lng,
+                });
+                navigation.navigate('Navigation', {
+                  destination: {
+                    name: `${workLocation.name} — ${workLocation.address}`,
+                    lat: workLocation.lat,
+                    lng: workLocation.lng,
+                  },
+                });
+              }}
+              style={[styles.workCard, {
+                backgroundColor: isDark ? '#2C2C2E' : '#FFFFFF',
+              }]}
+            >
+              <View style={[styles.workIcon, { backgroundColor: isDark ? 'rgba(127, 169, 142, 0.15)' : 'rgba(127, 169, 142, 0.12)' }]}>
+                <Ionicons name="briefcase" size={22} color="#7FA98E" />
+              </View>
+              <View style={styles.workContent}>
+                <Text style={[styles.workLabel, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>Work</Text>
+                <Text style={[styles.workName, { color: isDark ? '#F5F5F7' : '#4A4F55' }]}>{workLocation.name} — {workLocation.address}</Text>
+                <Text style={styles.workDistance}>{workLocation.distance}</Text>
+              </View>
+              <Ionicons name="navigate" size={20} color="#7FA98E" />
+            </TouchableOpacity>
+
             {/* Frequent */}
             <View style={styles.sectionHeader}>
               <Ionicons name="star" size={20} color="#C9A96E" />
@@ -204,6 +263,145 @@ export default function SearchResultsScreen() {
                 </View>
               </TouchableOpacity>
             ))}
+
+            {/* Events */}
+            <View style={styles.sectionHeader}>
+              <Ionicons name="calendar" size={20} color="#C9A96E" />
+              <Text style={[styles.sectionTitle, { color: isDark ? '#F5F5F7' : '#4A4F55' }]}>Events Nearby</Text>
+            </View>
+            {events.map((event) => {
+              const isExpanded = expandedEventId === event.id;
+              return (
+                <View key={event.id}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (event.parkingFull) {
+                        setExpandedEventId(isExpanded ? null : event.id);
+                      } else {
+                        setSelectedDestination({
+                          name: `${event.name} — ${event.venue}`,
+                          lat: event.lat,
+                          lng: event.lng,
+                        });
+                        navigation.navigate('Navigation', {
+                          destination: {
+                            name: `${event.name} — ${event.venue}`,
+                            lat: event.lat,
+                            lng: event.lng,
+                          },
+                        });
+                      }
+                    }}
+                    style={[styles.eventCard, {
+                      backgroundColor: isDark ? '#2C2C2E' : '#FFFFFF',
+                      borderColor: isExpanded ? '#DC4C4C' : isDark ? '#3A3A3C' : '#D3D5D7',
+                      borderBottomLeftRadius: isExpanded ? 0 : 16,
+                      borderBottomRightRadius: isExpanded ? 0 : 16,
+                    }]}
+                  >
+                    <View style={styles.eventContent}>
+                      <Text style={[styles.eventName, { color: isDark ? '#F5F5F7' : '#4A4F55' }]}>{event.name}</Text>
+                      <Text style={[styles.eventVenue, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>{event.venue}</Text>
+                      <Text style={[styles.eventTime, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>{event.time}</Text>
+                    </View>
+                    <View style={[
+                      styles.difficultyBadge,
+                      { backgroundColor: event.difficulty === 'High' ? 'rgba(220, 76, 76, 0.15)' : 'rgba(201, 169, 110, 0.15)' },
+                    ]}>
+                      <View style={[
+                        styles.difficultyDot,
+                        { backgroundColor: event.difficulty === 'High' ? '#DC4C4C' : '#C9A96E' },
+                      ]} />
+                      <Text style={[
+                        styles.difficultyText,
+                        { color: event.difficulty === 'High' ? '#DC4C4C' : '#C9A96E' },
+                      ]}>
+                        {event.difficulty}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Expanded: parking full — show alternatives & transit */}
+                  {isExpanded && event.parkingFull && (
+                    <View style={[styles.eventExpanded, {
+                      backgroundColor: isDark ? '#2C2C2E' : '#FFFFFF',
+                      borderColor: '#DC4C4C',
+                    }]}>
+                      {/* Warning banner */}
+                      <View style={styles.fullWarning}>
+                        <Ionicons name="warning" size={16} color="#DC4C4C" />
+                        <Text style={styles.fullWarningText}>Parking near {event.venue} is likely full</Text>
+                      </View>
+
+                      {/* Nearby alternatives */}
+                      <Text style={[styles.altSectionTitle, { color: isDark ? '#F5F5F7' : '#4A4F55' }]}>
+                        <Ionicons name="car-outline" size={14} /> Nearby Parking
+                      </Text>
+                      {eventAlternatives.map((alt) => (
+                        <View key={alt.id} style={[styles.altRow, {
+                          backgroundColor: isDark ? '#3A3A3C' : '#F5F1E8',
+                          borderColor: isDark ? '#48484A' : '#D3D5D7',
+                        }]}>
+                          <View style={styles.altInfo}>
+                            <Text style={[styles.altName, { color: isDark ? '#F5F5F7' : '#4A4F55' }]}>{alt.name}</Text>
+                            <Text style={[styles.altMeta, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>
+                              {alt.distance} · {alt.walk} · {alt.price}
+                            </Text>
+                          </View>
+                          <View style={styles.altRight}>
+                            <View style={styles.altConfBadge}>
+                              <Text style={styles.altConfText}>{alt.confidence}%</Text>
+                            </View>
+                            <TouchableOpacity
+                              onPress={() => {
+                                setSelectedDestination({ name: alt.name, lat: alt.lat, lng: alt.lng });
+                                navigation.navigate('Navigation', {
+                                  destination: { name: alt.name, lat: alt.lat, lng: alt.lng },
+                                });
+                              }}
+                              style={styles.altNavBtn}
+                            >
+                              <Ionicons name="navigate" size={16} color="#FFFFFF" />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      ))}
+
+                      {/* Public transit */}
+                      <Text style={[styles.altSectionTitle, { color: isDark ? '#F5F5F7' : '#4A4F55', marginTop: 12 }]}>
+                        <Ionicons name="bus-outline" size={14} /> Public Transit
+                      </Text>
+                      {eventTransit.map((tr) => (
+                        <View key={tr.id} style={[styles.altRow, {
+                          backgroundColor: isDark ? '#3A3A3C' : '#F5F1E8',
+                          borderColor: isDark ? '#48484A' : '#D3D5D7',
+                        }]}>
+                          <View style={[styles.transitDot, { backgroundColor: tr.color + '20' }]}>
+                            <Ionicons name={tr.icon} size={18} color={tr.color} />
+                          </View>
+                          <View style={styles.altInfo}>
+                            <Text style={[styles.altName, { color: isDark ? '#F5F5F7' : '#4A4F55' }]}>{tr.name}</Text>
+                            <Text style={[styles.altMeta, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>{tr.detail}</Text>
+                            <Text style={[styles.altFreq, { color: isDark ? '#AEAEB2' : '#8A8D91' }]}>{tr.frequency}</Text>
+                          </View>
+                          <TouchableOpacity
+                            onPress={() => {
+                              setSelectedDestination({ name: `${tr.name} — ${tr.detail.split('·')[0].trim()}`, lat: tr.lat, lng: tr.lng });
+                              navigation.navigate('Navigation', {
+                                destination: { name: `${tr.name} — ${tr.detail.split('·')[0].trim()}`, lat: tr.lat, lng: tr.lng },
+                              });
+                            }}
+                            style={styles.altNavBtn}
+                          >
+                            <Ionicons name="navigate" size={16} color="#FFFFFF" />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
           </>
         )}
         <View style={{ height: 100 }} />
@@ -255,4 +453,108 @@ const styles = StyleSheet.create({
     borderColor: '#7FA98E', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4,
   },
   confidenceText: { fontSize: 13, fontWeight: '600', color: '#5F7A61' },
+  workCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#7FA98E',
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  workIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  workContent: { flex: 1 },
+  workLabel: { fontSize: 12, fontWeight: '500', marginBottom: 2 },
+  workName: { fontSize: 15, fontWeight: '600' },
+  workDistance: { fontSize: 12, color: '#7FA98E', marginTop: 2 },
+  eventCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+  },
+  eventContent: { flex: 1, marginRight: 12 },
+  eventName: { fontSize: 15, fontWeight: '600' },
+  eventVenue: { fontSize: 13, marginTop: 2 },
+  eventTime: { fontSize: 12, marginTop: 4 },
+  difficultyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  difficultyDot: { width: 6, height: 6, borderRadius: 3 },
+  difficultyText: { fontSize: 12, fontWeight: '600' },
+  // Event expanded (parking full)
+  eventExpanded: {
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    padding: 16,
+    gap: 8,
+  },
+  fullWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(220, 76, 76, 0.1)',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  fullWarningText: { fontSize: 13, fontWeight: '600', color: '#DC4C4C', flex: 1 },
+  altSectionTitle: { fontSize: 14, fontWeight: '700', marginBottom: 8 },
+  altRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 8,
+  },
+  altInfo: { flex: 1 },
+  altName: { fontSize: 14, fontWeight: '600' },
+  altMeta: { fontSize: 12, marginTop: 2 },
+  altFreq: { fontSize: 11, marginTop: 2 },
+  altRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  altConfBadge: {
+    backgroundColor: 'rgba(127, 169, 142, 0.15)',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  altConfText: { fontSize: 12, fontWeight: '700', color: '#7FA98E' },
+  altNavBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#7FA98E',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  transitDot: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
