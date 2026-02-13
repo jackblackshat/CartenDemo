@@ -1,0 +1,151 @@
+# Carten Prediction Engine — Configuration
+
+# Database
+database:
+  path: "../../sf-free-parking/db/sf_parking.db"  # Shared with sf-free-parking pipeline
+
+# Model settings
+model:
+  occupancy:
+    n_estimators: 500
+    max_depth: 8
+    learning_rate: 0.05
+    early_stopping_rounds: 20
+    eval_metric: "logloss"
+  turnover:
+    n_estimators: 300
+    max_depth: 6
+    learning_rate: 0.05
+    early_stopping_rounds: 20
+    eval_metric: "rmse"
+  artifacts_dir: "models"
+
+# Training
+training:
+  train_months: [1, 30]       # months 1-30 for training
+  val_months: [31, 33]        # months 31-33 for validation
+  test_months: [34, 36]       # months 34-36 for test
+  sample_rate_random: 0.20    # 20% random sampling (100% state-change)
+  time_slot_minutes: 15       # 15-minute prediction intervals
+
+# Serving
+serving:
+  host: "0.0.0.0"
+  port: 8000
+  max_results: 50
+  default_radius_m: 500
+  cache_ttl_seconds: 900      # 15-minute cache buckets
+
+# Privacy gating
+privacy:
+  free_tier:
+    max_precision: "block"     # block-level only at all distances
+  pro_tier:
+    exact_within_m: 200        # exact coords within 200m
+    fuzzy_within_m: 400        # ~50m fuzz between 200-400m
+    block_beyond_m: 400        # block-level beyond 400m
+    fuzz_meters: 50
+
+# Transfer multipliers (meter → free spot adjustment)
+transfer_multipliers:
+  residential: 1.15
+  commercial: 1.25
+  restaurant: 1.30
+  gym: 1.10
+  mixed: 1.20
+
+# Zone classification defaults
+zone_defaults:
+  residential:
+    base_churn: 0.3
+    neighborhoods: ["marina"]
+  commercial:
+    base_churn: 1.5
+    neighborhoods: ["financial_district", "union_square", "civic_center"]
+  restaurant:
+    base_churn: 2.0
+    neighborhoods: ["north_beach", "chinatown"]
+  mixed:
+    base_churn: 1.0
+    neighborhoods: ["mission", "soma", "castro", "haight"]
+
+# Neighborhoods (from sf-free-parking)
+neighborhoods:
+  financial_district:
+    name: "Financial District"
+    lat: 37.7946
+    lng: -122.3999
+    radius_m: 600
+  soma:
+    name: "SoMa"
+    lat: 37.7785
+    lng: -122.3950
+    radius_m: 800
+  mission:
+    name: "Mission"
+    lat: 37.7599
+    lng: -122.4148
+    radius_m: 800
+  north_beach:
+    name: "Fisherman's Wharf / North Beach"
+    lat: 37.8060
+    lng: -122.4110
+    radius_m: 700
+  marina:
+    name: "Marina"
+    lat: 37.8010
+    lng: -122.4370
+    radius_m: 600
+  civic_center:
+    name: "Civic Center / Hayes Valley"
+    lat: 37.7790
+    lng: -122.4180
+    radius_m: 600
+  union_square:
+    name: "Union Square"
+    lat: 37.7880
+    lng: -122.4075
+    radius_m: 400
+  chinatown:
+    name: "Chinatown"
+    lat: 37.7941
+    lng: -122.4078
+    radius_m: 350
+  castro:
+    name: "Castro"
+    lat: 37.7609
+    lng: -122.4350
+    radius_m: 500
+  haight:
+    name: "Haight-Ashbury"
+    lat: 37.7692
+    lng: -122.4481
+    radius_m: 500
+
+# Real-time signal polling intervals (seconds)
+realtime:
+  traffic_interval: 300       # 5 minutes
+  weather_interval: 900       # 15 minutes
+  events_interval: 3600       # 1 hour
+  garages_interval: 600       # 10 minutes
+
+# Confidence scoring weights
+confidence:
+  meter_data_weight: 0.4
+  spatial_data_weight: 0.2
+  realtime_freshness_weight: 0.2
+  model_certainty_weight: 0.2
+  meter_sample_threshold: 500   # sample_count for max quality
+  realtime_fresh_minutes: 5
+  realtime_stale_minutes: 60
+
+# SF metered hours
+metered_hours:
+  start: 9    # 9 AM
+  end: 18     # 6 PM
+  days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
